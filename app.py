@@ -26,72 +26,108 @@ os.makedirs(TEMP_PROCESS_DIR, exist_ok=True)
 
 
 # ---------------------------------------------------------
-# 功能 1: 数据采集与打标 (增强版：带校验)
+# 功能 1: 数据采集 (带详细调试信息的修复版)
 # ---------------------------------------------------------
 @app.route('/api/collect/upload', methods=['POST'])
 def collect_upload():
     try:
+        # =========================================================
+        # 🕵️‍♂️ [调试核心] 打印收到的所有表单参数
+        # =========================================================
+        print(f"\n--- [收到上传请求] ---")
+        print(f"所有参数: {dict(request.form)}") # 打印 Android 传来的所有文本参数
+        
         # 1. 基础参数校验
         if 'file' not in request.files:
+            print("错误: 没有收到 file 参数")
             return jsonify({"status": "error", "message": "No file part"}), 400
             
         file = request.files['file']
+        
+        # --- 获取参数 ---
         label = request.form.get('label', 'unknown') 
         date_str = request.form.get('date', datetime.now().strftime('%Y-%m-%d'))
+        custom_path = request.form.get('custom_path', '').strip()
         
+        # [修改] 获取并清理 ground_truth，防止空格干扰
+        # 兼容性处理：把 None 转为空字符串，去空格，转小写
+        raw_gt = request.form.get('ground_truth')
+        ground_truth = str(raw_gt).strip().lower() if raw_gt else "no data"
+
+        print(f"解析后的 ground_truth: '{ground_truth}' (原始值: {raw_gt})")
+
         if file.filename == '':
             return jsonify({"status": "error", "message": "No selected file"}), 400
 
-        # =========================================================
-        # 核心修改 2: 检测上传的数据是否有效
-        # =========================================================
-        # A. 检查文件大小
-        file.seek(0, os.SEEK_END) # 移动指针到末尾
-        file_length = file.tell() # 获取大小
-        file.seek(0) # ⚠️ 必须把指针移回开头，否则后面 save 会保存空文件！
+        # --- 2. 图片有效性与分辨率获取 ---
+        file.seek(0, os.SEEK_END)
+        file_length = file.tell()
+        file.seek(0)
 
         if file_length == 0:
-            return jsonify({"status": "error", "message": "File is empty (0 bytes)"}), 400
+            return jsonify({"status": "error", "message": "File is empty"}), 400
         
-        # B. 检查是否为有效图片 (防止上传坏文件)
         try:
-            # 使用 PIL 尝试打开，verify() 仅校验头信息，速度快
-            img = Image.open(file)
-            img.verify() 
-            file.seek(0) # ⚠️ PIL 读取后指针也会动，必须再次复位！
+            img_info = Image.open(file)
+            width, height = img_info.size
+            resolution_tag = f"{width}x{height}"
+            file.seek(0)
         except Exception as e:
-            return jsonify({"status": "error", "message": f"Invalid image file: {str(e)}"}), 400
+            return jsonify({"status": "error", "message": f"Invalid image: {str(e)}"}), 400
 
-        # 2. 构建保存路径
-        save_dir = os.path.join(UPLOAD_ROOT, label, date_str)
+        # --- 3. 构建保存路径 ---
+        if custom_path:
+            safe_path = custom_path.replace('../', '').replace('..\\', '')
+            save_dir = os.path.join(UPLOAD_ROOT, safe_path)
+            print(f"路径模式: 自定义 -> {save_dir}")
+        else:
+            save_dir = os.path.join(UPLOAD_ROOT, label, date_str)
+            print(f"路径模式: 默认 -> {save_dir}")
+
         os.makedirs(save_dir, exist_ok=True)
 
+        # --- 4. 保存图片 ---
         filename = secure_filename(file.filename)
-        timestamp = datetime.now().strftime("%H%M%S_")
-        final_path = os.path.join(save_dir, timestamp + filename)
+        timestamp = datetime.now().strftime("%H%M%S")
+        final_name = f"{timestamp}_{resolution_tag}_{filename}"
+        final_path = os.path.join(save_dir, final_name)
         
-        # 3. 保存文件
         file.save(final_path)
-        
+        print(f"图片已保存: {final_name}")
+
         # =========================================================
-        # 核心修改 3: 保存后双重确认 (Double Check)
+        # [修改] 写入 labels.txt 逻辑 (增强兼容性)
         # =========================================================
-        if os.path.exists(final_path) and os.path.getsize(final_path) > 0:
-            print(f"[成功] 图片已确实写入磁盘: {final_path}")
-            print(f"大小: {file_length} bytes")
-            return jsonify({
-                "status": "success", 
-                "path": final_path,
-                "size": file_length
-            }), 200
+        # 只要 ground_truth 不为空，并且不是 "null" / "none"，我们就尝试记录
+        # 这样即使你传了 "true" 或者其他值，也能看到 txt 生成
+        if ground_truth and ground_truth not in ['null', 'none']:
+            txt_path = os.path.join(save_dir, "labels.txt")
+            
+            # 格式: 图片文件名, 真值
+            line_content = f"{final_name}, {ground_truth}\n"
+            
+            try:
+                with open(txt_path, "a", encoding="utf-8") as f:
+                    f.write(line_content)
+                print(f"[真值记录成功] 写入: {line_content.strip()} 到 {txt_path}")
+            except Exception as e:
+                print(f" [真值记录失败] 无法写入 txt: {e}")
         else:
-            print(f"[失败] 文件保存逻辑执行了，但在磁盘上找不到或大小为0: {final_path}")
-            return jsonify({"status": "error", "message": "Save failed on disk check"}), 500
+            print(f"[跳过真值记录] 原因: ground_truth 为空或无效 (收到: '{ground_truth}')")
+
+        # --- 5. 返回结果 ---
+        return jsonify({
+            "status": "success", 
+            "path": final_path,
+            "resolution": resolution_tag,
+            "ground_truth": ground_truth if ground_truth else "N/A"
+        }), 200
 
     except Exception as e:
-        print(f" Server Error: {e}")
+        print(f"Server Error: {e}")
+        import traceback
+        traceback.print_exc() # 打印完整报错堆栈
         return jsonify({"status": "error", "message": str(e)}), 500
-
 # ... (功能 2 和 功能 3 保持不变，但建议也确认一下 random 库是否导入) ...
 
 # ---------------------------------------------------------
