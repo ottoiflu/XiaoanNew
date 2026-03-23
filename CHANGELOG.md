@@ -4,6 +4,52 @@
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-03-24
+
+### Changed
+- 更新 AGENTS.md 以反映最新项目结构
+- 同步文档中的路径引用（dataset.yaml, test_outputs）
+
+### Fixed
+- 修正 dataset.yaml 示例路径为 yolo/data/coco
+
+## [0.8.0] - 2026-03-24
+
+### Changed
+- 重组实验输出结构
+  - 每次测试创建独立目录 `exp_{timestamp}_{name}/`
+  - 目录内包含 results.csv 和 visuals/ 子目录
+- 历史实验数据迁移至 archived_experiments/
+
+## [0.7.0] - 2026-03-24
+
+### Changed
+- 统一测试输出目录结构
+- 脚本可视化输出路径更新为 test_outputs/seg_visuals
+
+## [0.6.0] - 2026-03-24
+
+### Changed
+- 重新组织数据目录结构
+- 创建 Compliance_test_data/ 存放清洗后的测试数据
+  - yes_val/: 正样本验证集 (428张)
+  - no_val/: 负样本验证集 (408张)
+  - positive/: 去重正样本 (1228张)
+  - negative/: 去重负样本 (278张)
+
+### Removed
+- 移除 yolov8seg_visuals_* 可视化目录 (约830M)
+
+## [0.5.0] - 2026-03-24
+
+### Added
+- 添加数据集分析报告 docs/DATASET_ANALYSIS.md
+  - 总计分析 3349 张图片
+  - 发现 47.9% 重复率 (1603张)
+  - 唯一图片 1746 张
+
+
+
 ## [0.4.0] - 2026-03-23
 
 ### Changed

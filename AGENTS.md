@@ -21,11 +21,19 @@ XiaoanNew/
 │   └── contrast_VLM_CV_test_v2.py # 联合测试脚本（轮廓版）
 ├── yolo/                     # YOLO 训练相关
 │   ├── train_yolov8_seg.py        # YOLOv8 实例分割训练脚本
-│   └── data/                      # 数据集配置
-├── MMLab/                    # OpenMMLab 生态环境（MMDetection/MMYOLO）
-├── App_collected_dataset/    # 采集的数据集
-├── experiment_outputs/       # 实验结果输出（CSV 格式）
-└── yolov8seg_visuals*/       # 分割可视化结果
+│   └── data/coco/                 # 数据集目录
+├── Compliance_test_data/     # 清洗后的测试数据集
+│   ├── yes_val/                   # 正样本验证集
+│   ├── no_val/                    # 负样本验证集
+│   ├── positive/                  # 去重正样本
+│   └── negative/                  # 去重负样本
+├── test_outputs/             # 测试输出目录
+│   ├── exp_{timestamp}_{name}/    # 每次实验独立目录
+│   │   ├── results.csv
+│   │   └── visuals/
+│   └── archived_experiments/      # 历史实验存档
+├── App_collected_dataset/    # 原始采集数据（含冗余）
+└── weights/                  # 模型权重文件
 ```
 
 ## 类别定义
@@ -176,7 +184,7 @@ data/coco/
 
 3. **dataset.yaml 配置**:
 ```yaml
-path: /root/XiaoanNew/MMLab/mmyolo/data/coco
+path: /root/XiaoanNew/yolo/data/coco
 train: images/train2017
 val: images/val2017
 
@@ -263,7 +271,7 @@ work_dirs/yolov8l_seg/weights/best.pt
 
 ### 输出格式
 
-CSV 文件保存在 `experiment_outputs/` 目录，包含:
+CSV 文件保存在 `test_outputs/exp_{timestamp}_{name}/` 目录，包含:
 - 图片名称
 - 真实标签
 - VLM 预测结果
