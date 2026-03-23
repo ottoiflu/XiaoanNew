@@ -1,6 +1,7 @@
 *
 !*/
 !*.py
+!*.md
 !.gitignore
-
-
+!.github/
+!.github/**
