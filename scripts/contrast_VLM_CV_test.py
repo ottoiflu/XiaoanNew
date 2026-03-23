@@ -44,7 +44,7 @@ SAVE_DIR = "/root/XiaoanNew/experiment_outputs"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 # 3. 可视化结果保存目录（调试用）
-SEG_VIS_DIR = "/root/XiaoanNew/yolov8seg_visuals_test"
+SEG_VIS_DIR = "/root/XiaoanNew/test_outputs/seg_visuals"
 os.makedirs(SEG_VIS_DIR, exist_ok=True)
 
 # 4. 实验配置
