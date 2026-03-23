@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-23
+
+### Added
+- 新增 `docs/PROJECT_STRUCTURE.md` 项目结构详细说明文档
+  - 根目录核心文件说明
+  - scripts/ 脚本工具目录详解
+  - yolo/ 训练目录说明
+  - MMLab/ OpenMMLab 生态介绍
+  - App_collected_dataset/ 数据集目录结构
+  - experiment_outputs/ 实验输出字段说明
+  - 依赖关系图
+
+### Changed
+- 更新 .gitignore 以允许追踪 docs/ 目录
+
 ## [0.2.0] - 2026-03-23
 
 ### Added
@@ -19,15 +34,7 @@
 ## [0.1.0] - 2026-03-23
 
 ### Added
-- 创建项目工作指南文件 `.github/AGENTS.md`，包含：
-  - 项目概述与核心功能说明
-  - 项目结构文档
-  - 类别定义（电动车、马路牙子、停车线、盲道）
-  - 代码规范与开发约定
-  - 运行环境配置
-  - 常用命令参考
-  - API 端点列表
-  - 注意事项
+- 创建项目工作指南文件 `.github/AGENTS.md`
 - 创建 `CHANGELOG.md` 变更日志
 - 更新 `.gitignore` 以允许追踪 .md 文件
 

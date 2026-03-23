@@ -5,3 +5,6 @@
 !.gitignore
 !.github/
 !.github/**
+__pycache__/
+*.pyc!docs/
+!docs/**
