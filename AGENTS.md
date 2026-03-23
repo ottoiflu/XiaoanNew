@@ -23,10 +23,12 @@ XiaoanNew/
 │   ├── train_yolov8_seg.py        # YOLOv8 实例分割训练脚本
 │   └── data/coco/                 # 数据集目录
 ├── Compliance_test_data/     # 清洗后的测试数据集
-│   ├── yes_val/                   # 正样本验证集
-│   ├── no_val/                    # 负样本验证集
-│   ├── positive/                  # 去重正样本
-│   └── negative/                  # 去重负样本
+│   ├── yes_val/                   # 正样本测试集 (200张, 抽样)
+│   ├── no_val/                    # 负样本测试集 (200张, 抽样)
+│   ├── yes_val_all/               # 正样本完整集 (440张)
+│   ├── no_val_all/                # 负样本完整集 (421张)
+│   ├── positive_extra/            # 去重正样本 (不含验证集)
+│   └── negative_extra/            # 去重负样本 (不含验证集)
 ├── test_outputs/             # 测试输出目录
 │   ├── exp_{timestamp}_{name}/    # 每次实验独立目录
 │   │   ├── results.csv

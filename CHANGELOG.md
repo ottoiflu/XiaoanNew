@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-03-24
+
+### Added
+- 创建精简测试集 (各200张随机抽样)
+  - yes_val/: 正样本测试集 (从440张中抽取)
+  - no_val/: 负样本测试集 (从421张中抽取)
+
+### Changed
+- 原验证集重命名为 yes_val_all 和 no_val_all
+- 原 positive/negative 重命名为 positive_extra/negative_extra
+- 更新 AGENTS.md 目录结构说明
+
+
 ## [0.8.1] - 2026-03-24
 
 ### Changed
