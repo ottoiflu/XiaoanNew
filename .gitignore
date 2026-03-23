@@ -11,3 +11,5 @@ __pycache__/
 !weights/
 !weights/*.pt
 *.pt
+App_collected_dataset/
+App_collected_dataset/*

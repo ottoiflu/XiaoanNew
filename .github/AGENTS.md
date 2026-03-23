@@ -21,10 +21,15 @@ XiaoanNew/
 │   └── contrast_VLM_CV_test_v2.py # 联合测试脚本（轮廓版）
 ├── yolo/                     # YOLO 训练相关
 │   ├── train_yolov8_seg.py        # YOLOv8 实例分割训练脚本
-│   └── data/                      # 数据集配置
+│   └── data/coco/                 # YOLO 格式数据集
 ├── weights/                  # 模型权重目录
-│   └── best.pt                  # YOLOv8-Seg 训练好的模型
-├── App_collected_dataset/    # 采集的数据集
+│   └── best.pt               # YOLOv8-Seg 训练好的模型
+├── Compliance_test_data/     # 清洗后的测试数据集
+│   ├── yes_val/              # 验证集正样本 (428张)
+│   ├── no_val/               # 验证集负样本 (408张)
+│   ├── positive/             # 扩展正样本 (1194张，去重)
+│   └── negative/             # 扩展负样本 (258张，去重)
+├── App_collected_dataset/    # App 采集的原始数据（待清洗）
 ├── experiment_outputs/       # 实验结果输出（CSV 格式）
 └── yolov8seg_visuals*/       # 分割可视化结果
 ```
