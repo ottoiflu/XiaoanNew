@@ -1,0 +1,82 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xiaoan-parking-detection"
+version = "1.1.0"
+description = "共享单车智能停放检测系统"
+readme = "docs/PROJECT_STRUCTURE.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "XiaoanNew Team"}
+]
+keywords = ["computer-vision", "object-detection", "yolov8", "vlm", "parking-compliance"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "ultralytics>=8.0.0",
+    "flask>=2.0.0",
+    "openai>=1.0.0",
+    "pillow>=9.0.0",
+    "opencv-python>=4.8.0",
+    "numpy>=1.24.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+    "tqdm>=4.60.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.0.0",
+    "mypy>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/XiaoanNew"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scripts*", "app*", "config*", "utils*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | __pycache__
+  | weights
+  | test_outputs
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip = [".git", "__pycache__", "weights", "test_outputs"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"

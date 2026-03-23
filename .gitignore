@@ -15,3 +15,10 @@ App_collected_dataset/
 App_collected_dataset/*!scripts/prompts/
 !scripts/prompts/*.yaml
 !scripts/configs/*.yaml
+
+# 环境变量 (敏感信息)
+.env
+
+# 配置模块
+
+# 项目配置文件

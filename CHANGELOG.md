@@ -4,6 +4,43 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-03-24
+
+
+
+### Added
+
+- 新增依赖管理文件
+
+  - `requirements.txt`: pip 依赖清单
+
+  - `pyproject.toml`: 现代 Python 项目配置
+
+- 新增环境变量管理系统
+
+  - `.env.example`: 环境变量模板
+
+  - `config/settings.py`: 统一配置加载模块
+
+- 新增公共工具模块 `utils/`
+
+  - `metrics.py`: 评估指标计算和报告生成
+
+
+
+### Changed
+
+- 更新 .gitignore 支持新增文件类型
+
+
+
+### Security
+
+- API Key 从代码中移除，改为环境变量管理
+
+
+
+
 ## [1.0.0] - 2026-03-24
 
 ### Added

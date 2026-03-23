@@ -1,0 +1,24 @@
+# XiaoanNew - 共享单车停放检测系统依赖
+# 使用方式: pip install -r requirements.txt
+
+# === 核心框架 ===
+torch>=2.0.0
+torchvision>=0.15.0
+ultralytics>=8.0.0
+
+# === Web 服务 ===
+flask>=2.0.0
+werkzeug>=2.0.0
+
+# === AI/ML ===
+openai>=1.0.0
+
+# === 图像处理 ===
+pillow>=9.0.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+
+# === 配置与工具 ===
+pyyaml>=6.0
+python-dotenv>=1.0.0
+tqdm>=4.60.0
