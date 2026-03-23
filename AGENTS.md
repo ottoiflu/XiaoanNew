@@ -18,7 +18,11 @@ XiaoanNew/
 │   ├── yolov8_seg_inference.py    # YOLOv8-Seg 推理模块（主用）
 │   ├── yolov8_seg_batch.py        # 批量处理脚本
 │   ├── contrast_VLM_CV_test.py    # VLM+CV 联合测试脚本
-│   └── contrast_VLM_CV_test_v2.py # 联合测试脚本（轮廓版）
+│   ├── contrast_VLM_CV_test_v2.py # 联合测试脚本（轮廓版）
+│   ├── prompt_manager.py          # 提示词管理模块
+│   ├── prompts/                   # 提示词配置目录
+│   │   └── cv_enhanced_p4.yaml    # 当前使用的提示词
+│   └── tool/                      # 辅助工具脚本
 ├── yolo/                     # YOLO 训练相关
 │   ├── train_yolov8_seg.py        # YOLOv8 实例分割训练脚本
 │   └── data/coco/                 # 数据集目录
@@ -262,8 +266,25 @@ work_dirs/yolov8l_seg/weights/best.pt
 | model | VLM 模型名称 |
 | max_size | 图片最大尺寸 (768, 768) |
 | quality | JPEG 压缩质量 (80) |
-| prompt_id | 使用的 Prompt ID |
+| prompt_id | 提示词文件名 (不含扩展名) |
 | conf_threshold | 分割置信度阈值 (0.6) |
+
+### 提示词管理
+
+提示词配置存放在 `scripts/prompts/` 目录下，使用 YAML 格式：
+
+```bash
+# 查看所有可用提示词
+python scripts/prompt_manager.py list
+
+# 查看提示词详情
+python scripts/prompt_manager.py info cv_enhanced_p4
+
+# 显示提示词内容
+python scripts/prompt_manager.py show cv_enhanced_p4
+```
+
+添加新提示词只需创建新的 YAML 文件，格式参考 `cv_enhanced_p4.yaml`。
 
 ### 几何计算
 
@@ -346,7 +367,7 @@ python app.py
 1. 推理模块应提供统一接口：`predict()` 返回结构化字典，`predict_memory()` 返回 PNG 字节流
 2. 新增功能时优先扩展 `YOLOv8SegInference` 类，保持接口向后兼容
 3. 实验脚本命名格式：`{功能}_{模型}_{版本}.py`
-4. 实验输出 CSV 命名格式：`results_{model}_{size}_q{quality}_p{prompt_id}_detailed.csv`
+4. 实验输出格式：`test_outputs/exp_{timestamp}_{exp_name}/` 目录结构
 
 ## 注意事项
 

@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-03-24
+
+### Changed
+- 更新 AGENTS.md 文档
+  - 添加 prompt_manager.py 和 prompts/ 目录说明
+  - 添加提示词管理使用指南
+  - 更新实验输出格式说明
+- 重写 docs/PROJECT_STRUCTURE.md
+  - 同步所有目录结构变更
+  - 添加 Compliance_test_data 和 test_outputs 说明
+  - 移除已删除文件的引用
+
+
 ## [0.9.0] - 2026-03-24
 
 ### Added
