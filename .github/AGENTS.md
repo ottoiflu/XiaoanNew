@@ -31,7 +31,8 @@ XiaoanNew/
 │   └── negative/             # 扩展负样本 (258张，去重)
 ├── App_collected_dataset/    # App 采集的原始数据（待清洗）
 ├── experiment_outputs/       # 实验结果输出（CSV 格式）
-└── yolov8seg_visuals*/       # 分割可视化结果
+└── test_outputs/             # 测试输出目录
+    └── seg_visuals/          # 分割可视化结果
 ```
 
 ## 类别定义
