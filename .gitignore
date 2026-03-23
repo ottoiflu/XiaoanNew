@@ -8,3 +8,6 @@
 __pycache__/
 *.pyc!docs/
 !docs/**
+!weights/
+!weights/*.pt
+*.pt

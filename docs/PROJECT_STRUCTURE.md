@@ -87,39 +87,20 @@ yolo/
 
 ---
 
-## MMLab/ - OpenMMLab 生态
+## weights/ - 模型权重目录
 
-包含 MMDetection 和 MMYOLO 框架。
+存放训练好的模型权重文件。
 
 ```
-MMLab/
-├── demo_instance.py           # 演示实例分割
-├── test.py                    # 通用测试脚本
-├── checkpoints/               # 模型配置文件
-│   └── mask-rcnn_r50_fpn_1x_coco.py
-├── mmdetection/               # MMDetection 框架（Git submodule）
-│   ├── my_maskrcnn.py         # 自定义 MaskRCNN 脚本
-│   ├── my_yolo_v8_seg.py      # YOLOv8-Seg 配置
-│   ├── test_batch_data.py     # 批量数据测试
-│   ├── test_single_data.py    # 单张图片测试
-│   └── fix_json.py            # JSON 修复工具
-└── mmyolo/                    # MMYOLO 框架（Git submodule）
-    ├── my_yolov8_seg.py       # YOLOv8-Seg 配置
-    ├── my_yolov8_ins_seg.py   # YOLOv8 实例分割
-    ├── train_yolov8_seg.py    # 训练脚本（备用）
-    ├── convert_coco_to_yolo_seg.py  # COCO 转 YOLO 格式
-    ├── force_convert.py       # 强制格式转换
-    └── work_dirs/             # 训练输出目录
-        └── yolov8l_seg/weights/best.pt  # 最佳模型权重
+weights/
+└── best.pt    # YOLOv8-Seg 训练好的最佳模型权重 (~88MB)
 ```
 
-### 关键文件说明
+### 说明
 
-| 文件 | 功能 |
-|------|------|
-| `convert_coco_to_yolo_seg.py` | 将 COCO 格式标注转换为 YOLO Segmentation 格式 |
-| `my_yolov8_seg.py` | MMYOLO 配置文件，定义模型结构和训练参数 |
-| `work_dirs/yolov8l_seg/weights/best.pt` | 训练好的最佳模型权重 |
+- 模型使用 Ultralytics YOLOv8l-seg 架构
+- 训练数据集：4 类实例分割（电动车、马路牙子、停车线、盲道）
+- 建议使用 GPU 推理以获得最佳性能
 
 ---
 
@@ -221,6 +202,6 @@ yolo/train_yolov8_seg.py
 
 ## 配置文件优先级
 
-1. **模型权重**: `MMLab/mmyolo/work_dirs/yolov8l_seg/weights/best.pt`
+1. **模型权重**: `weights/best.pt`
 2. **数据集配置**: `yolo/data/coco/dataset.yaml`
 3. **API 配置**: 各脚本顶部的 `CONFIG` 字典

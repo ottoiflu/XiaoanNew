@@ -22,8 +22,7 @@ XiaoanNew/
 ├── yolo/                     # YOLO 训练相关
 │   ├── train_yolov8_seg.py        # YOLOv8 实例分割训练脚本
 │   └── data/                      # 数据集配置
-├── weights/                  # 模型权重目录
-│   └── best.pt                  # YOLOv8-Seg 训练好的模型
+├── MMLab/                    # OpenMMLab 生态环境（MMDetection/MMYOLO）
 ├── App_collected_dataset/    # 采集的数据集
 ├── experiment_outputs/       # 实验结果输出（CSV 格式）
 └── yolov8seg_visuals*/       # 分割可视化结果
