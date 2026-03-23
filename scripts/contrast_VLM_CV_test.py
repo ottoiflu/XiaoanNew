@@ -35,8 +35,8 @@ from yolov8_seg_inference import YOLOv8SegInference, load_yolov8_seg
 
 # 1. 数据文件夹
 DATA_FOLDERS = [
-    r"/root/XiaoanNew/App_collected_dataset/Xiaoan_datasets/no_val",
-    r"/root/XiaoanNew/App_collected_dataset/Xiaoan_datasets/yes_val",
+    r"/root/XiaoanNew/Compliance_test_data/no_val",
+    r"/root/XiaoanNew/Compliance_test_data/yes_val",
 ]
 
 # 2. 输出目录

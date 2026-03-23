@@ -14,8 +14,8 @@ from PIL import Image
 
 # 1. 待处理的文件夹列表 (脚本会将它们合并视为“一次实验”)
 DATA_FOLDERS = [
-    r"/root/XiaoanNew/App_collected_dataset/Xiaoan_datasets/no_val",
-    r"/root/XiaoanNew/App_collected_dataset/Xiaoan_datasets/yes_val",
+    r"/root/XiaoanNew/Compliance_test_data/no_val",
+    r"/root/XiaoanNew/Compliance_test_data/yes_val",
 ]
 
 # 2. 输出结果保存路径
