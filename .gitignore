@@ -12,4 +12,5 @@ __pycache__/
 !weights/*.pt
 *.pt
 App_collected_dataset/
-App_collected_dataset/*
+App_collected_dataset/*!scripts/prompts/
+!scripts/prompts/*.yaml

@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-03-24
+
+### Added
+- 新增提示词管理模块 (`scripts/prompt_manager.py`)
+  - 支持从 YAML 文件加载提示词
+  - 提供 `load_prompt()` 便捷函数
+  - 命令行工具: `python prompt_manager.py list/show/info`
+- 创建 `scripts/prompts/` 目录存放提示词配置
+
+### Changed
+- 重构测试脚本的提示词加载方式
+  - 移除内嵌 PROMPT_LIB 字典
+  - 改为从外部 YAML 文件动态加载
+- 首个提示词配置: `cv_enhanced_p4.yaml`
+
+
 ## [0.8.3] - 2026-03-24
 
 ### Changed
