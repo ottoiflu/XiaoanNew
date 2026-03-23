@@ -41,13 +41,25 @@ DATA_FOLDERS = [
     r"/root/XiaoanNew/Compliance_test_data/yes_val",
 ]
 
-# 2. 输出目录
-SAVE_DIR = "/root/XiaoanNew/experiment_outputs"
-os.makedirs(SAVE_DIR, exist_ok=True)
+# 2. 输出根目录
+TEST_OUTPUT_ROOT = "/root/XiaoanNew/test_outputs"
 
-# 3. 可视化结果保存目录（调试用）
-SEG_VIS_DIR = "/root/XiaoanNew/test_outputs/seg_visuals"
-os.makedirs(SEG_VIS_DIR, exist_ok=True)
+# 3. 生成带时间戳的实验目录
+from datetime import datetime
+TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+# 4. 创建本次实验的独立目录（将在配置读取后创建）
+def create_experiment_dir(exp_name):
+    """创建本次实验的输出目录，包含 CSV 和可视化子目录"""
+    exp_dir = os.path.join(TEST_OUTPUT_ROOT, f"exp_{TIMESTAMP}_{exp_name}")
+    vis_dir = os.path.join(exp_dir, "visuals")
+    os.makedirs(exp_dir, exist_ok=True)
+    os.makedirs(vis_dir, exist_ok=True)
+    return exp_dir, vis_dir
+
+# 占位变量，将在 main() 中初始化
+SAVE_DIR = None
+SEG_VIS_DIR = None
 
 # 4. 实验配置
 CONFIG = {
@@ -478,6 +490,11 @@ def calculate_and_report(results):
 # ================= 主函数 (保持原样) =================
 
 def main():
+    # 初始化实验输出目录
+    global SAVE_DIR, SEG_VIS_DIR
+    SAVE_DIR, SEG_VIS_DIR = create_experiment_dir(CONFIG['exp_name'])
+    print(f"\n>>> 实验目录: {SAVE_DIR}")
+    
     print(f"\n>>> 实验启动（YOLOv8-Seg + VLM + Contours + IoU Calc）")
     print(f">>> 模型: {CONFIG['model']}")
     print(f">>> 分割模式: 轮廓图 (Contours)")
