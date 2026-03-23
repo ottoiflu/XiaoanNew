@@ -1,0 +1,31 @@
+# 默认实验配置
+# 用法: python contrast_VLM_CV_test_v2.py --config configs/default.yaml
+
+# 基本信息
+exp_name: "default_experiment"
+description: "VLM+CV 联合测试默认配置"
+
+# VLM 配置
+model: "qwen/qwen3-vl-30b-a3b-instruct"
+prompt_id: "cv_enhanced_p4"
+
+# 图像处理
+max_size: [768, 768]
+quality: 80
+
+# 分割模型配置
+segmentor_weights: "/root/XiaoanNew/weights/best.pt"
+segmentor_device: "cuda:0"
+conf_threshold: 0.6
+
+# 数据目录
+data_folders:
+  - "/root/XiaoanNew/Compliance_test_data/no_val"
+  - "/root/XiaoanNew/Compliance_test_data/yes_val"
+
+# 输出配置
+output_root: "/root/XiaoanNew/test_outputs"
+save_visuals: true
+
+# API 配置
+max_workers: 15

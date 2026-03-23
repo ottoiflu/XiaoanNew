@@ -19,6 +19,7 @@ import re
 import io
 import json
 import time
+import argparse
 import concurrent.futures
 from openai import OpenAI
 from tqdm import tqdm
@@ -30,6 +31,7 @@ import cv2  # 需要引入 opencv 画轮廓
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # 导入 YOLOv8-Seg 推理模块
+from experiment_config import load_config, save_config, ExperimentConfig
 from yolov8_seg_inference import YOLOv8SegInference, load_yolov8_seg
 from prompt_manager import load_prompt, list_prompts
 
@@ -500,5 +502,155 @@ def main():
     print(f"\n>>> 实验结束！详细结果已保存: {out_csv}")
 
 
+
+
+def parse_args():
+    """解析命令行参数"""
+    parser = argparse.ArgumentParser(description='VLM + CV 联合测试脚本')
+    parser.add_argument('--config', '-c', type=str, default=None,
+                       help='实验配置文件路径 (YAML格式)')
+    parser.add_argument('--list-configs', action='store_true',
+                       help='列出可用的配置文件')
+    return parser.parse_args()
+
+
+def run_with_config(config_path: str = None):
+    """使用配置文件运行实验"""
+    global CONFIG, DATA_FOLDERS, SEGMENTOR_CONFIG, MAX_WORKERS, SAVE_DIR, SEG_VIS_DIR
+    
+    if config_path:
+        print(f">>> 加载配置文件: {config_path}")
+        exp_config = load_config(config_path)
+        
+        # 更新全局配置
+        CONFIG = {
+            "exp_name": exp_config.exp_name,
+            "model": exp_config.model,
+            "max_size": tuple(exp_config.max_size),
+            "quality": exp_config.quality,
+            "prompt_id": exp_config.prompt_id
+        }
+        DATA_FOLDERS = exp_config.data_folders
+        SEGMENTOR_CONFIG = {
+            "weights": exp_config.segmentor_weights,
+            "device": exp_config.segmentor_device,
+            "conf_threshold": exp_config.conf_threshold
+        }
+        MAX_WORKERS = exp_config.max_workers
+        
+        print(f">>> 配置已加载:")
+        print(f"    - 实验名称: {exp_config.exp_name}")
+        print(f"    - 模型: {exp_config.model}")
+        print(f"    - 提示词: {exp_config.prompt_id}")
+        print(f"    - 数据目录: {len(DATA_FOLDERS)} 个")
+    
+    # 创建实验目录
+    SAVE_DIR, SEG_VIS_DIR = create_experiment_dir(CONFIG['exp_name'])
+    print(f"\n>>> 实验目录: {SAVE_DIR}")
+    
+    # 备份配置文件到实验目录
+    if config_path:
+        backup_path = os.path.join(SAVE_DIR, "experiment_config.yaml")
+        save_config(exp_config, backup_path)
+        print(f">>> 配置已备份: {backup_path}")
+    
+    # 调用原始 main 函数的核心逻辑
+    _run_experiment()
+
+
+def _run_experiment():
+    """执行实验核心逻辑"""
+    global SAVE_DIR, SEG_VIS_DIR
+    
+    print(f"\n>>> 实验启动（YOLOv8-Seg + VLM + Contours + IoU Calc）")
+    print(f">>> 模型: {CONFIG['model']}")
+    print(f">>> 分割模式: 轮廓图 (Contours)")
+
+    # 初始化 API 客户端池
+    clients = [OpenAI(base_url=BASE_URL, api_key=k) for k in API_KEYS]
+    
+    # 加载标签
+    global_labels = {}
+    all_tasks = []
+
+    for folder in DATA_FOLDERS:
+        if not os.path.exists(folder):
+            print(f"⚠️ 文件夹不存在: {folder}")
+            continue
+            
+        l_path = os.path.join(folder, "labels.txt")
+        if os.path.exists(l_path):
+            with open(l_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    parts = line.strip().split(",", 1)
+                    if len(parts) == 2:
+                        name, lab = parts[0].strip(), parts[1].strip()
+                        global_labels[(name, folder)] = norm_yesno(lab)
+
+        imgs = [f for f in os.listdir(folder) if f.lower().endswith(('.jpg', '.png', '.jpeg'))]
+        for i, img in enumerate(imgs):
+            all_tasks.append((img, folder, clients[i % len(clients)], global_labels, CONFIG))
+
+    print(f">>> 任务分发完毕，共计 {len(all_tasks)} 个图片请求。")
+
+    # 输出 CSV
+    out_csv = os.path.join(SAVE_DIR, f"{CONFIG['exp_name']}.csv")
+    results = []
+
+    with open(out_csv, "w", newline='', encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "image", "folder", "pred", "gt",
+            "composition", "angle", "distance", "context",
+            "num_detections", "electric_bike", "curb", "parking_lane", "tactile_paving",
+            "reason", "latency"
+        ])
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
+            for row in tqdm(ex.map(process_single_image, all_tasks), 
+                          total=len(all_tasks), desc="推理中"):
+                writer.writerow(row)
+                f.flush()
+                results.append(row)
+
+    # 计算评估指标
+    metrics = calculate_and_report(results)
+    
+    # 保存汇总
+    summary_path = os.path.join(SAVE_DIR, "all_experiments_summary.csv")
+    metrics.update({
+        "exp_name": CONFIG['exp_name'],
+        "segmentor": "yolov8l-seg",
+        "folders": len(DATA_FOLDERS),
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+    })
+    
+    file_exists = os.path.exists(summary_path)
+    with open(summary_path, 'a', newline='', encoding='utf-8-sig') as f:
+        dict_writer = csv.DictWriter(f, fieldnames=metrics.keys())
+        if not file_exists:
+            dict_writer.writeheader()
+        dict_writer.writerow(metrics)
+
+    print(f"\n>>> 实验结束！详细结果已保存: {out_csv}")
+
+
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    
+    if args.list_configs:
+        # 列出可用配置
+        config_dir = os.path.join(os.path.dirname(__file__), "configs")
+        if os.path.exists(config_dir):
+            configs = [f for f in os.listdir(config_dir) if f.endswith('.yaml')]
+            print("可用的实验配置文件:")
+            for c in configs:
+                print(f"  - {c}")
+        else:
+            print("配置目录不存在")
+    elif args.config:
+        # 使用配置文件运行
+        run_with_config(args.config)
+    else:
+        # 保持向后兼容：无参数时使用硬编码配置
+        main()

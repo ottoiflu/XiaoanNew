@@ -4,6 +4,29 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-03-24
+
+### Added
+- 新增实验配置管理系统 (`scripts/experiment_config.py`)
+  - 支持从 YAML 文件加载实验配置
+  - ExperimentConfig dataclass 统一管理配置参数
+  - 配置自动备份到实验输出目录
+- 创建 `scripts/configs/` 目录存放实验配置
+  - `default.yaml`: 默认实验配置模板
+  - `test_config_system.yaml`: 配置系统测试用配置
+
+### Changed
+- 重构测试脚本 (`contrast_VLM_CV_test_v2.py`)
+  - 添加 `--config` 命令行参数支持配置文件驱动
+  - 添加 `--list-configs` 列出可用配置
+  - 保持向后兼容：无参数时使用内置默认配置
+  - 每次实验自动保存配置快照到输出目录
+
+### Technical Details
+- 配置字段: exp_name, model, prompt_id, max_size, quality, segmentor, data_folders, output_root, max_workers
+- 运行方式: `python contrast_VLM_CV_test_v2.py --config configs/default.yaml`
+
+
 ## [0.9.1] - 2026-03-24
 
 ### Changed

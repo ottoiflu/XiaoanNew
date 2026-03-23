@@ -14,3 +14,4 @@ __pycache__/
 App_collected_dataset/
 App_collected_dataset/*!scripts/prompts/
 !scripts/prompts/*.yaml
+!scripts/configs/*.yaml
