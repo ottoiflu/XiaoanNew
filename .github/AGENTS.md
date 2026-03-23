@@ -338,6 +338,113 @@ python app.py
 3. 重要的配置参数应集中在脚本顶部的「配置区域」中定义
 4. 模型权重路径使用绝对路径，便于跨目录调用
 
+## 实验配置系统
+
+
+
+v1.0.0 引入了解耦的实验配置系统，支持通过 YAML 文件管理实验参数。
+
+
+
+### 目录结构
+
+
+
+```
+
+scripts/
+
+├── experiment_config.py       # 配置管理模块
+
+├── prompt_manager.py          # 提示词管理模块
+
+├── configs/                   # 实验配置目录
+
+│   ├── default.yaml          # 默认配置模板
+
+│   └── *.yaml                # 自定义实验配置
+
+└── prompts/                   # 提示词配置目录
+
+    └── cv_enhanced_p4.yaml   # 当前使用的提示词
+
+```
+
+
+
+### 使用方式
+
+
+
+```bash
+
+# 列出可用配置
+
+python contrast_VLM_CV_test_v2.py --list-configs
+
+
+
+# 使用配置文件运行实验
+
+python contrast_VLM_CV_test_v2.py --config configs/default.yaml
+
+
+
+# 无参数运行（使用脚本内置默认配置）
+
+python contrast_VLM_CV_test_v2.py
+
+```
+
+
+
+### 配置字段说明
+
+
+
+| 字段 | 类型 | 说明 |
+
+|------|------|------|
+
+| exp_name | string | 实验名称，用于生成输出目录 |
+
+| model | string | VLM 模型路径 |
+
+| prompt_id | string | 提示词文件名（无扩展名） |
+
+| max_size | [int, int] | 图像最大尺寸 |
+
+| quality | int | JPEG 压缩质量 |
+
+| data_folders | list | 数据目录列表 |
+
+| max_workers | int | 并发线程数 |
+
+
+
+### 配置备份
+
+
+
+每次实验运行时，配置文件会自动备份到实验输出目录：
+
+```
+
+test_outputs/exp_{timestamp}_{name}/
+
+├── experiment_config.yaml    # 配置快照
+
+├── {exp_name}.csv           # 实验结果
+
+└── visuals/                 # 可视化输出
+
+```
+
+
+
+---
+
+
 ## 开发约定
 
 1. 推理模块应提供统一接口：`predict()` 返回结构化字典，`predict_memory()` 返回 PNG 字节流
