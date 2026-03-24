@@ -37,6 +37,20 @@ class BinaryMetrics:
     invalid: int
     avg_latency: float = 0.0
     
+    @classmethod
+    def from_confusion_matrix(cls, tp: int, tn: int, fp: int, fn: int) -> "BinaryMetrics":
+        """从混淆矩阵直接构建指标"""
+        total = tp + tn + fp + fn
+        acc = (tp + tn) / total if total else 0
+        pre = tp / (tp + fp) if (tp + fp) else 0
+        rec = tp / (tp + fn) if (tp + fn) else 0
+        f1 = 2 * pre * rec / (pre + rec) if (pre + rec) else 0
+        return cls(
+            accuracy=round(acc, 4), precision=round(pre, 4),
+            recall=round(rec, 4), f1_score=round(f1, 4),
+            tp=tp, tn=tn, fp=fp, fn=fn, total=total, invalid=0,
+        )
+
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
         return {
@@ -55,34 +69,10 @@ class BinaryMetrics:
 
 
 def normalize_label(label: str) -> str:
-    """
-    标准化标签值
-    
-    Args:
-        label: 原始标签字符串
-        
-    Returns:
-        标准化后的 "yes" 或 "no"
-    """
-    if not label:
-        return "unknown"
-    
-    label = str(label).strip().lower()
-    
-    # 正样本关键词
-    positive_keywords = ["yes", "合规", "是", "true", "1", "positive", "正"]
-    # 负样本关键词
-    negative_keywords = ["no", "违规", "否", "false", "0", "negative", "负"]
-    
-    for kw in positive_keywords:
-        if kw in label:
-            return "yes"
-    
-    for kw in negative_keywords:
-        if kw in label:
-            return "no"
-    
-    return "unknown"
+    """标准化标签值，复用 vlm_parser 的统一实现"""
+    from utils.vlm_parser import normalize_label as _normalize
+    result = _normalize(label)
+    return result if result else "unknown"
 
 
 def calculate_metrics(

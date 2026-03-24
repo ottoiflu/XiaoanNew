@@ -4,6 +4,51 @@
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-03-24
+
+### Added
+- utils/vlm_parser.py: VLM 响应解析与标签标准化模块
+  - normalize_label() 统一标签归一化（合并原先 3 处重复实现）
+  - VLMResult 数据类，结构化承载四维度解析结果
+  - parse_vlm_response() 从 VLM 文本中提取 JSON 四维度状态
+- utils/vlm_client.py: API 客户端池管理模块
+  - create_client_pool() 从环境变量加载 API 密钥创建客户端
+  - distribute_tasks() 轮询分配任务到客户端
+- utils/image_utils.py: 图像处理工具模块
+  - encode_image_to_base64() 支持文件路径 / ndarray / PIL Image 输入
+  - calculate_iou_and_overlap() Mask IoU 与覆盖率计算
+  - combine_masks() 按类别合并 Mask
+  - draw_wireframe_visual() 线框轮廓可视化
+- utils/experiment_io.py: 实验 IO 工具模块
+  - load_labels() / load_all_labels() 标签加载
+  - collect_image_tasks() 图片文件收集
+  - ResultWriter 上下文管理器，CSV 流式写入
+  - append_summary() 汇总指标追加
+- BinaryMetrics.from_confusion_matrix() 类方法，支持从混淆矩阵直接构建指标
+- 5 个 YAML 提示词文件迁移自 v1 内联字典
+  - standard_p2, standard_p3, standard_p4, standard_p5, cv_enhanced_p3_compare
+
+### Changed
+- scripts/contrast_VLM_test.py: 全面重构（557 行 -> 189 行）
+  - 移除硬编码 API 密钥，改用 config.settings 环境变量管理
+  - 移除 328 行内联 PROMPT_LIB 字典，统一使用 prompt_manager
+  - 所有工具函数替换为共享模块调用
+- scripts/contrast_VLM_CV_test_v2.py: 全面重构（662 行 -> 319 行）
+  - 消除 main() 与 _run_experiment() 的 140 行重复代码
+  - 替换内联几何计算、图像编码、标签加载为共享模块
+  - 统一使用 vlm_parser + ScoringEngine 进行判定
+- utils/metrics.py: normalize_label 改为复用 vlm_parser 统一实现
+- utils/scoring.py: _calc_metrics 改为委托 BinaryMetrics.from_confusion_matrix
+- utils/__init__.py: 导出所有新增模块的公共接口
+
+### Removed
+- v1 脚本中的硬编码 API 密钥（安全风险消除）
+- v1 脚本中的 328 行内联提示词字典
+- v2 脚本中的重复 main() 函数
+- 4 处 norm_yesno / normalize_label 重复实现（统一为 1 处）
+- 4 处 calculate_and_report 重复实现（统一为 metrics 模块）
+
+
 ## [1.5.0] - 2026-03-24
 
 ### Added

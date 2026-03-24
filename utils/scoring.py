@@ -15,8 +15,8 @@ from __future__ import annotations
 import csv
 import copy
 import itertools
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
+from utils.metrics import BinaryMetrics
 from typing import Optional
 
 
@@ -389,17 +389,7 @@ class ScoringEngine:
 
     @staticmethod
     def _calc_metrics(tp: int, tn: int, fp: int, fn: int) -> dict:
-        total = tp + tn + fp + fn
-        acc = (tp + tn) / total if total else 0
-        pre = tp / (tp + fp) if (tp + fp) else 0
-        rec = tp / (tp + fn) if (tp + fn) else 0
-        f1 = 2 * pre * rec / (pre + rec) if (pre + rec) else 0
-        return {
-            "tp": tp, "tn": tn, "fp": fp, "fn": fn,
-            "total": total, "acc": round(acc, 4),
-            "pre": round(pre, 4), "rec": round(rec, 4),
-            "f1": round(f1, 4),
-        }
+        return BinaryMetrics.from_confusion_matrix(tp, tn, fp, fn).to_dict()
 
     # ── 工厂方法 ──
 

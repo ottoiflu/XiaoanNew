@@ -31,7 +31,12 @@ XiaoanNew/
 │   └── tool/                      # 辅助工具脚本
 ├── utils/                    # 公共工具模块
 │   ├── __init__.py
-│   └── metrics.py            # 评估指标计算
+│   ├── vlm_parser.py         # VLM 响应解析与标签标准化
+│   ├── vlm_client.py         # API 客户端池管理
+│   ├── image_utils.py        # 图像编码、IoU 计算、轮廓可视化
+│   ├── experiment_io.py      # 标签加载、CSV 写入、汇总追加
+│   ├── metrics.py            # 评估指标计算
+│   └── scoring.py            # 加权评判引擎
 ├── yolo/                     # YOLO 训练相关
 │   ├── train_yolov8_seg.py
 │   └── data/coco/
