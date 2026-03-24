@@ -18,7 +18,7 @@ import itertools
 from dataclasses import dataclass
 from typing import Optional
 
-from utils.metrics import BinaryMetrics
+from modules.experiment.metrics import BinaryMetrics
 
 # ──────────────────────────── 数据结构 ────────────────────────────
 

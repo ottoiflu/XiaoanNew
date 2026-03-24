@@ -13,30 +13,40 @@
 ```
 XiaoanNew/
 ├── app.py                    # Flask 后端 API 服务入口
-├── mask_inference.py         # MaskRCNN 推理模块（备用）
-├── config/                   # Python 配置模块
+├── modules/                  # 核心模块包
 │   ├── __init__.py
-│   └── settings.py           # 统一配置加载（环境变量）
+│   ├── config/               # 配置管理
+│   │   ├── __init__.py
+│   │   └── settings.py       # 统一配置加载（环境变量）
+│   ├── vlm/                  # VLM 客户端与解析
+│   │   ├── __init__.py
+│   │   ├── client.py         # API 客户端池管理
+│   │   └── parser.py         # VLM 响应解析与标签标准化
+│   ├── cv/                   # 计算机视觉
+│   │   ├── __init__.py
+│   │   ├── yolov8_inference.py  # YOLOv8-Seg 推理模块（主用）
+│   │   ├── mask_inference.py    # MaskRCNN 推理模块（备用）
+│   │   └── image_utils.py      # 图像编码、IoU 计算、轮廓可视化
+│   ├── experiment/           # 实验管理
+│   │   ├── __init__.py
+│   │   ├── config.py         # 实验配置管理
+│   │   ├── io.py             # 标签加载、CSV 写入、汇总追加
+│   │   ├── metrics.py        # 评估指标计算
+│   │   └── scoring.py        # 加权评判引擎
+│   └── prompt/               # 提示词管理
+│       ├── __init__.py
+│       └── manager.py        # 提示词加载与管理
 ├── configs/                  # 实验配置 YAML
 │   ├── default.yaml          # 默认实验配置
 │   └── *.yaml                # 自定义实验配置
 ├── prompts/                  # 提示词配置 YAML
 │   └── cv_enhanced_p4.yaml   # 当前使用的提示词
-├── scripts/                  # 脚本工具目录
-│   ├── yolov8_seg_inference.py    # YOLOv8-Seg 推理模块（主用）
+├── scripts/                  # 入口脚本目录
+│   ├── contrast_VLM_test.py       # 纯 VLM 测试脚本
+│   ├── contrast_VLM_CV_test_v2.py # CV+VLM 联合测试脚本（主用）
+│   ├── contrast_VLM_CV_test.py    # 旧版 CV+VLM 脚本
 │   ├── yolov8_seg_batch.py        # 批量处理脚本
-│   ├── contrast_VLM_CV_test_v2.py # 联合测试脚本（主用）
-│   ├── experiment_config.py       # 实验配置管理模块
-│   ├── prompt_manager.py          # 提示词管理模块
 │   └── tool/                      # 辅助工具脚本
-├── utils/                    # 公共工具模块
-│   ├── __init__.py
-│   ├── vlm_parser.py         # VLM 响应解析与标签标准化
-│   ├── vlm_client.py         # API 客户端池管理
-│   ├── image_utils.py        # 图像编码、IoU 计算、轮廓可视化
-│   ├── experiment_io.py      # 标签加载、CSV 写入、汇总追加
-│   ├── metrics.py            # 评估指标计算
-│   └── scoring.py            # 加权评判引擎
 ├── yolo/                     # YOLO 训练相关
 │   ├── train_yolov8_seg.py
 │   └── data/coco/
@@ -54,7 +64,7 @@ XiaoanNew/
 └── .env.example              # 环境变量模板
 ```
 
-| 3 | Tactile paving | 盲道 |
+ Tactile paving | 盲道 |
 
 ---
 

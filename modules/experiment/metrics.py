@@ -78,7 +78,7 @@ class BinaryMetrics:
 
 def normalize_label(label: str) -> str:
     """标准化标签值，复用 vlm_parser 的统一实现"""
-    from utils.vlm_parser import normalize_label as _normalize
+    from modules.vlm.parser import normalize_label as _normalize
 
     result = _normalize(label)
     return result if result else "unknown"

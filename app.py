@@ -31,7 +31,7 @@ from werkzeug.utils import secure_filename
 
 # 导入配置模块
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from config.settings import settings
+from modules.config.settings import settings
 
 # 添加脚本目录到路径以导入推理模块
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts"))
@@ -68,7 +68,7 @@ YOLO_SEG_WEIGHTS = "/root/XiaoanNew/weights/best.pt"
 # 尝试加载 YOLOv8-Seg 模型
 ai_engine = None
 try:
-    from yolov8_seg_inference import load_yolov8_seg
+    from modules.cv.yolov8_inference import load_yolov8_seg
 
     print(f"🚀 正在加载 YOLOv8-Seg 模型: {YOLO_SEG_WEIGHTS}")
     ai_engine = load_yolov8_seg(YOLO_SEG_WEIGHTS, device="cuda:0")
@@ -80,7 +80,7 @@ except ImportError as e:
 
     # 回退到 MaskRCNN
     try:
-        from mask_inference import MaskRCNNInference
+        from modules.cv.mask_inference import MaskRCNNInference
 
         MASKRCNN_WEIGHTS = "/root/yk/maskrcnn_simple/MaskRCNN_Xiaoan_4class_v2.pth"
         ai_engine = MaskRCNNInference(MASKRCNN_WEIGHTS)

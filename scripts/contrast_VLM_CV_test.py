@@ -28,7 +28,7 @@ from tqdm import tqdm
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # 导入 YOLOv8-Seg 推理模块
-from yolov8_seg_inference import load_yolov8_seg
+from modules.cv.yolov8_inference import load_yolov8_seg
 
 # ================= 配置区域 =================
 

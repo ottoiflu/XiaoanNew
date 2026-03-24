@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-03-24
+
+### Changed
+- 项目级包重构: 引入 modules/ 顶层包，按领域划分子包
+  - modules/config/: 配置管理 (原 config/)
+  - modules/vlm/: VLM 客户端与响应解析 (原 utils/vlm_client.py, utils/vlm_parser.py)
+  - modules/cv/: 计算机视觉 (原 utils/image_utils.py, scripts/yolov8_seg_inference.py, mask_inference.py)
+  - modules/experiment/: 实验管理 (原 utils/experiment_io.py, utils/metrics.py, utils/scoring.py, scripts/experiment_config.py)
+  - modules/prompt/: 提示词管理 (原 scripts/prompt_manager.py)
+- 所有入口脚本和 app.py 的 import 路径统一迁移至 modules.*
+- pyproject.toml 包发现配置更新
+
+### Removed
+- config/ 旧目录 (迁移至 modules/config/)
+- utils/ 旧目录 (迁移至 modules/ 各子包)
+- 根目录 mask_inference.py (迁移至 modules/cv/)
+- scripts/ 中的库模块文件 (迁移至 modules/ 各子包)
+
 ## [1.6.1] - 2026-03-24
 
 ### Added

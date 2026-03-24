@@ -9,7 +9,7 @@ import csv
 import os
 from typing import Callable, Optional
 
-from utils.vlm_parser import normalize_label
+from modules.vlm.parser import normalize_label
 
 
 def load_labels(

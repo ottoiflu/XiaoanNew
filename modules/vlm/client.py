@@ -10,7 +10,7 @@ from typing import Optional
 
 from openai import OpenAI
 
-from config import settings
+from modules.config import settings
 
 
 def create_client_pool(

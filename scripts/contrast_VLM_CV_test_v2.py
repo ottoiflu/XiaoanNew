@@ -20,26 +20,26 @@ _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _PROJECT_ROOT)
 sys.path.insert(0, os.path.join(_PROJECT_ROOT, "scripts"))
 
-from config.settings import get_settings
-from scripts.experiment_config import load_config, save_config
-from scripts.prompt_manager import load_prompt
-from scripts.yolov8_seg_inference import load_yolov8_seg
-from utils.experiment_io import (
-    ResultWriter,
-    append_summary,
-    collect_image_tasks,
-    load_all_labels,
-)
-from utils.image_utils import (
+from modules.config.settings import get_settings
+from modules.cv.image_utils import (
     calculate_iou_and_overlap,
     combine_masks,
     draw_wireframe_visual,
     encode_image_to_base64,
 )
-from utils.metrics import calculate_metrics, print_metrics_report, update_leaderboard
-from utils.scoring import ScoringEngine
-from utils.vlm_client import create_client_pool, distribute_tasks
-from utils.vlm_parser import normalize_label, parse_vlm_response
+from modules.cv.yolov8_inference import load_yolov8_seg
+from modules.experiment.config import load_config, save_config
+from modules.experiment.io import (
+    ResultWriter,
+    append_summary,
+    collect_image_tasks,
+    load_all_labels,
+)
+from modules.experiment.metrics import calculate_metrics, print_metrics_report, update_leaderboard
+from modules.experiment.scoring import ScoringEngine
+from modules.prompt.manager import load_prompt
+from modules.vlm.client import create_client_pool, distribute_tasks
+from modules.vlm.parser import normalize_label, parse_vlm_response
 
 # ================= 默认配置 =================
 
