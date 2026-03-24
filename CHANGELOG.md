@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-03-24
+
+### Added
+- 新增 tests/test_flask_api.py: Flask API 端点集成测试（20 tests）
+  - 覆盖全部 5 个 API 端点（health / upload / detect / detect_static / check_parking）
+  - 包含路径遍历安全测试、模型未加载异常路径、OCR 故障降级等场景
+- 新增 tests/test_coverage_boost.py: 模块覆盖率补充测试（26 tests）
+  - scoring.py: 缺失 score_map 校验、中文 ground_truth 解析、grid_search 优化目标切换等
+  - experiment/config.py: 默认配置目录发现、实验目录备份生成、完整字段初始化
+  - prompt/manager.py: 单例模式、模块级快捷函数、默认目录解析
+  - metrics.py: 排行榜去重、零值实验过滤、自定义标题报告
+
+### Changed
+- tests/conftest.py: 新增 flask_app fixture（mock 模型 + Flask 测试客户端）
+- 测试规模从 269 增至 315（+46 tests），模块覆盖率从 61% 提升至 65%
+- 排除 GPU 推理模块后可测试模块覆盖率均在 73% 以上
+
+
 ## [2.1.0] - 2026-03-24
 
 ### Added

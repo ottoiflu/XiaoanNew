@@ -133,3 +133,41 @@ def experiment_csv(tmp_path):
         w.writerow(headers)
         w.writerows(rows)
     return str(p)
+
+
+@pytest.fixture()
+def flask_app():
+    """创建 Flask 测试客户端 (mock 掉模型加载)"""
+    import os
+    from unittest.mock import MagicMock, patch
+
+    mock_ai = MagicMock()
+    mock_ai.predict_memory.return_value = __import__("io").BytesIO(b"\x89PNG\r\n\x1a\n")
+    mock_ai.predict_static_json.return_value = {
+        "detections": [
+            {"id": 1, "label": "Electric bike", "confidence": 0.92, "bbox": [0, 0, 10, 10], "area_ratio": 0.1}
+        ],
+        "mask_base64": "AAAA",
+    }
+
+    with (
+        patch.dict(
+            os.environ,
+            {
+                "ENVIRONMENT": "testing",
+                "VLM_API_KEYS": "k1",
+                "OCR_API_KEY": "ocr",
+                "API_BASE_URL": "https://test.com",
+                "VLM_MODEL": "m",
+                "OCR_MODEL": "om",
+            },
+        ),
+        patch("openai.OpenAI", return_value=MagicMock()),
+    ):
+        # 将 ai_engine 注入
+        import app as app_module
+
+        app_module.ai_engine = mock_ai
+        app_module.ocr_client = MagicMock()
+        app_module.app.config["TESTING"] = True
+        yield app_module.app.test_client(), mock_ai, app_module

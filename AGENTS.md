@@ -473,3 +473,13 @@ outputs/test_outputs/exp_{timestamp}_{name}/
 2. API Key 等敏感信息应通过环境变量或独立配置文件管理
 3. 实验输出 CSV 保留作为性能对比参考，修改实验配置前先备份
 4. 云端 VLM 调用有频率限制，批量测试时注意控制并发数
+
+## 环境配置
+
+项目使用 conda 环境 `XiaoanNew`，激活方式：
+
+```bash
+source /root/XiaoanNew/env_setup.sh
+```
+
+该脚本会激活 conda 环境并确保 PATH 优先使用环境内的 Python 可执行文件。在终端执行任何 Python 命令前，必须先运行此脚本。
