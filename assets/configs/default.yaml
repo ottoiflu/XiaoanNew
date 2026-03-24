@@ -14,17 +14,17 @@ max_size: [768, 768]
 quality: 80
 
 # 分割模型配置
-segmentor_weights: "/root/XiaoanNew/weights/best.pt"
+segmentor_weights: "/root/XiaoanNew/assets/weights/best.pt"
 segmentor_device: "cuda:0"
 conf_threshold: 0.6
 
 # 数据目录
 data_folders:
-  - "/root/XiaoanNew/Compliance_test_data/no_val"
-  - "/root/XiaoanNew/Compliance_test_data/yes_val"
+  - "/root/XiaoanNew/data/Compliance_test_data/no_val"
+  - "/root/XiaoanNew/data/Compliance_test_data/yes_val"
 
 # 输出配置
-output_root: "/root/XiaoanNew/test_outputs"
+output_root: "/root/XiaoanNew/outputs/test_outputs"
 save_visuals: true
 
 # API 配置

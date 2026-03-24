@@ -27,7 +27,8 @@ from pathlib import Path
 from tqdm import tqdm
 
 # 添加脚本目录到路径
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _PROJECT_ROOT)
 
 from PIL import Image
 
@@ -58,7 +59,9 @@ def parse_args():
     parser.add_argument(
         "-o", "--output", type=str, default=None, help="输出文件夹路径（默认：<输入文件夹>_yolov8seg_results）"
     )
-    parser.add_argument("-w", "--weights", type=str, default="/root/XiaoanNew/weights/best.pt", help="模型权重路径")
+    parser.add_argument(
+        "-w", "--weights", type=str, default="/root/XiaoanNew/assets/weights/best.pt", help="模型权重路径"
+    )
     parser.add_argument("-c", "--conf", type=float, default=0.5, help="置信度阈值 (默认: 0.5)")
     parser.add_argument("--iou", type=float, default=0.7, help="NMS IOU阈值 (默认: 0.7)")
     parser.add_argument("--imgsz", type=int, default=640, help="推理图像尺寸 (默认: 640)")

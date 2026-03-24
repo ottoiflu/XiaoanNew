@@ -409,7 +409,7 @@ def load_yolov8_seg(weights_path: str = None, device: str = None) -> YOLOv8SegIn
     """
     if weights_path is None:
         # 默认权重路径
-        weights_path = "/root/XiaoanNew/weights/best.pt"
+        weights_path = "/root/XiaoanNew/assets/weights/best.pt"
 
     return YOLOv8SegInference(weights_path, device=device)
 

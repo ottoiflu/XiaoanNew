@@ -63,7 +63,7 @@ except Exception as e:
     ocr_client = None
 
 # --- YOLOv8-Seg 模型配置 ---
-YOLO_SEG_WEIGHTS = "/root/XiaoanNew/weights/best.pt"
+YOLO_SEG_WEIGHTS = "/root/XiaoanNew/assets/weights/best.pt"
 
 # 尝试加载 YOLOv8-Seg 模型
 ai_engine = None

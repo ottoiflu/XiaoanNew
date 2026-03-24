@@ -18,7 +18,6 @@ from tqdm import tqdm
 # 项目根目录
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _PROJECT_ROOT)
-sys.path.insert(0, os.path.join(_PROJECT_ROOT, "scripts"))
 
 from modules.config.settings import get_settings
 from modules.cv.image_utils import (
@@ -43,7 +42,7 @@ from modules.vlm.parser import normalize_label, parse_vlm_response
 
 # ================= 默认配置 =================
 
-TEST_OUTPUT_ROOT = os.path.join(_PROJECT_ROOT, "test_outputs")
+TEST_OUTPUT_ROOT = os.path.join(_PROJECT_ROOT, "outputs/test_outputs")
 
 CONFIG = {
     "exp_name": "qwen3-vl-30b-a3b_contours_iou_fix",
@@ -55,12 +54,12 @@ CONFIG = {
 }
 
 DATA_FOLDERS = [
-    os.path.join(_PROJECT_ROOT, "Compliance_test_data/no_val"),
-    os.path.join(_PROJECT_ROOT, "Compliance_test_data/yes_val"),
+    os.path.join(_PROJECT_ROOT, "data/Compliance_test_data/no_val"),
+    os.path.join(_PROJECT_ROOT, "data/Compliance_test_data/yes_val"),
 ]
 
 SEGMENTOR_CONFIG = {
-    "weights": os.path.join(_PROJECT_ROOT, "weights/best.pt"),
+    "weights": os.path.join(_PROJECT_ROOT, "assets/weights/best.pt"),
     "device": "cuda:0",
     "conf_threshold": 0.6,
 }

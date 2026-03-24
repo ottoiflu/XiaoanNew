@@ -6,8 +6,8 @@ from PIL import Image
 
 # ================= 配置区域 =================
 BASE_DATA_DIR = r"/root/XiaoanNew/App_collected_dataset/Xiaoan_datasets"
-CSV_PATH = r"/root/XiaoanNew/experiment_outputs/qwen3-vl-30b-a3b-instruct_yolov8seg_cv_enhanced_p3_test.csv"
-MASK_DIR = r"/root/XiaoanNew/test_outputs/seg_visuals"
+CSV_PATH = r"/root/XiaoanNew/outputs/experiment_outputs/qwen3-vl-30b-a3b-instruct_yolov8seg_cv_enhanced_p3_test.csv"
+MASK_DIR = r"/root/XiaoanNew/outputs/test_outputs/seg_visuals"
 
 # ================= 1. 路径预扫描索引 =================
 print("正在扫描图片路径并建立索引...")

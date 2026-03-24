@@ -8,7 +8,7 @@
 4. 多环境支持 (development/production)
 
 使用方式:
-    from config.settings import settings
+    from modules.config.settings import settings
 
     api_keys = settings.VLM_API_KEYS  # 列表
     model = settings.VLM_MODEL
@@ -24,7 +24,7 @@ from typing import List, Optional
 VALID_ENVIRONMENTS = ("development", "production", "testing")
 
 # 查找项目根目录
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 
 
 def _load_env_files():
@@ -155,7 +155,7 @@ class Settings:
             # 模型配置
             VLM_MODEL=get_env("VLM_MODEL", "qwen/qwen3-vl-30b-a3b-instruct"),
             OCR_MODEL=get_env("OCR_MODEL", "qwen/qwen3-vl-8b-instruct"),
-            YOLO_WEIGHTS=get_env("YOLO_WEIGHTS", str(project_root / "weights" / "best.pt")),
+            YOLO_WEIGHTS=get_env("YOLO_WEIGHTS", str(project_root / "assets" / "weights" / "best.pt")),
             INFERENCE_DEVICE=get_env("INFERENCE_DEVICE", "cuda:0"),
             # 服务配置
             FLASK_PORT=get_env_int("FLASK_PORT", 5000),

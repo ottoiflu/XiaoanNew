@@ -25,7 +25,8 @@ from PIL import Image
 from tqdm import tqdm
 
 # 添加脚本目录到路径
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _PROJECT_ROOT)
 
 # 导入 YOLOv8-Seg 推理模块
 from modules.cv.yolov8_inference import load_yolov8_seg
@@ -34,13 +35,13 @@ from modules.cv.yolov8_inference import load_yolov8_seg
 
 # 1. 数据文件夹
 DATA_FOLDERS = [
-    r"/root/XiaoanNew/Compliance_test_data/no_val",
-    r"/root/XiaoanNew/Compliance_test_data/yes_val",
+    r"/root/XiaoanNew/data/Compliance_test_data/no_val",
+    r"/root/XiaoanNew/data/Compliance_test_data/yes_val",
 ]
 
 # 2. 输出目录
 # 2. 输出根目录
-TEST_OUTPUT_ROOT = "/root/XiaoanNew/test_outputs"
+TEST_OUTPUT_ROOT = "/root/XiaoanNew/outputs/test_outputs"
 
 # 3. 生成带时间戳的实验目录
 from datetime import datetime
@@ -72,7 +73,7 @@ CONFIG = {
 }
 
 # 5. YOLOv8-Seg 配置
-SEGMENTOR_CONFIG = {"weights": "/root/XiaoanNew/weights/best.pt", "device": "cuda:0", "conf_threshold": 0.6}
+SEGMENTOR_CONFIG = {"weights": "/root/XiaoanNew/assets/weights/best.pt", "device": "cuda:0", "conf_threshold": 0.6}
 
 # 6. 提示词库（CV增强版本）
 PROMPT_LIB = {

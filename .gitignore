@@ -26,12 +26,10 @@ __pycache__/
 !weights/*.pt
 *.pt
 
-# 数据目录 (忽略)
-App_collected_dataset/
 
 # 配置文件
 !configs/
-!configs/*.yaml
+!*.yaml
 !prompts/
 !prompts/*.yaml
 !config/
@@ -47,3 +45,9 @@ App_collected_dataset/
 
 # 本地环境覆盖文件 (不提交)
 .env.local
+
+.gradio/
+.ruff_cache/
+.vscode/
+
+data/

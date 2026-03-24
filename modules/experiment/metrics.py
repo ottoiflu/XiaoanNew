@@ -8,7 +8,7 @@
 4. 维护实验排行榜 (Top 20)
 
 使用方式:
-    from utils.metrics import calculate_metrics, print_metrics_report, update_leaderboard
+    from modules.experiment.metrics import calculate_metrics, print_metrics_report, update_leaderboard
 
     metrics = calculate_metrics(predictions, ground_truths)
     print_metrics_report(metrics)

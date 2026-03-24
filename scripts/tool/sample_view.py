@@ -11,7 +11,7 @@ BASE_PATH = r"/root/XiaoanNew/App_collected_dataset/Xiaoan_datasets"
 # 默认备选的待分拣目录名（会自动合并 BASE_PATH 下已有的目录）
 DATA_FOLDERS = ["yes_val", "no_val", "train", "val", "test"]
 
-MASK_DIR = r"/root/XiaoanNew/test_outputs/seg_visuals"
+MASK_DIR = r"/root/XiaoanNew/outputs/test_outputs/seg_visuals"
 LABEL_FILE_NAME = "labels.txt"
 SPLIT_BASE_DIR = BASE_PATH  # 分拣目标基准目录
 

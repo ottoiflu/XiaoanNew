@@ -7,7 +7,7 @@
 3. 保存配置到实验输出目录
 
 用法：
-    from experiment_config import load_config, save_config
+    from modules.experiment.config import load_config, save_config
 
     config = load_config("configs/default.yaml")
     save_config(config, "/path/to/output/")
@@ -38,20 +38,20 @@ class ExperimentConfig:
     quality: int = 80
 
     # 模型配置
-    segmentor_weights: str = "/root/XiaoanNew/weights/best.pt"
+    segmentor_weights: str = "/root/XiaoanNew/assets/weights/best.pt"
     segmentor_device: str = "cuda:0"
     conf_threshold: float = 0.6
 
     # 数据目录
     data_folders: List[str] = field(
         default_factory=lambda: [
-            "/root/XiaoanNew/Compliance_test_data/no_val",
-            "/root/XiaoanNew/Compliance_test_data/yes_val",
+            "/root/XiaoanNew/data/Compliance_test_data/no_val",
+            "/root/XiaoanNew/data/Compliance_test_data/yes_val",
         ]
     )
 
     # 输出配置
-    output_root: str = "/root/XiaoanNew/test_outputs"
+    output_root: str = "/root/XiaoanNew/outputs/test_outputs"
     save_visuals: bool = True
 
     # API 配置
@@ -152,7 +152,7 @@ def list_configs(configs_dir: Optional[str] = None) -> List[str]:
     """列出所有可用的配置文件"""
     if configs_dir is None:
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        configs_dir = os.path.join(script_dir, "..", "configs")
+        configs_dir = os.path.join(script_dir, "..", "..", "assets", "configs")
 
     if not os.path.exists(configs_dir):
         return []
@@ -184,7 +184,7 @@ if __name__ == "__main__":
 
     elif args.action == "show" and args.name:
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        config_path = os.path.join(script_dir, "configs", args.name)
+        config_path = os.path.join(script_dir, "..", "..", "assets", "configs", args.name)
         if not config_path.endswith(".yaml"):
             config_path += ".yaml"
         config = load_config(config_path)
@@ -194,7 +194,7 @@ if __name__ == "__main__":
         # 创建默认配置模板
         config = ExperimentConfig(exp_name="my_experiment")
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        output_path = os.path.join(script_dir, "configs", "template.yaml")
+        output_path = os.path.join(script_dir, "..", "..", "assets", "configs", "template.yaml")
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as f:
             yaml.dump(config.to_dict(), f, allow_unicode=True, default_flow_style=False, sort_keys=False)

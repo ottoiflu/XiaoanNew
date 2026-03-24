@@ -41,11 +41,11 @@ CONFIG = {
 }
 
 DATA_FOLDERS = [
-    os.path.join(_PROJECT_ROOT, "Compliance_test_data/no_val"),
-    os.path.join(_PROJECT_ROOT, "Compliance_test_data/yes_val"),
+    os.path.join(_PROJECT_ROOT, "data/Compliance_test_data/no_val"),
+    os.path.join(_PROJECT_ROOT, "data/Compliance_test_data/yes_val"),
 ]
 
-SAVE_DIR = os.path.join(_PROJECT_ROOT, "experiment_outputs")
+SAVE_DIR = os.path.join(_PROJECT_ROOT, "outputs/experiment_outputs")
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 # ================= 初始化 =================

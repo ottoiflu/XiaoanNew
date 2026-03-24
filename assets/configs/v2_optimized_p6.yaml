@@ -5,8 +5,8 @@ max_size: [768, 768]
 quality: 80
 max_workers: 4
 data_folders:
-  - "/root/XiaoanNew/Compliance_test_data/no_val"
-  - "/root/XiaoanNew/Compliance_test_data/yes_val"
-segmentor_weights: "/root/XiaoanNew/weights/best.pt"
+  - "/root/XiaoanNew/data/Compliance_test_data/no_val"
+  - "/root/XiaoanNew/data/Compliance_test_data/yes_val"
+segmentor_weights: "/root/XiaoanNew/assets/weights/best.pt"
 segmentor_device: "cuda:0"
 conf_threshold: 0.6

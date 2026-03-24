@@ -4,6 +4,23 @@
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-03-24
+
+### Fixed
+- 修复 modules/config/settings.py 中 PROJECT_ROOT 路径计算深度错误（.parent.parent -> .parent.parent.parent）
+- 修复 modules/prompt/manager.py 提示词目录指向 prompts/ 而非 assets/prompts/
+- 修复 modules/experiment/config.py 配置目录指向 configs/ 而非 assets/configs/
+- 修复 .env 和 .env.example 中 YOLO_WEIGHTS 路径未更新为 assets/weights/
+- 修复全部 YAML 实验配置（default.yaml 等）中的数据集、权重、输出路径
+- 修复 app.py、scripts/ 全部入口脚本中的硬编码路径（weights/、Compliance_test_data/、test_outputs/、experiment_outputs/）
+- 修复 scripts/contrast_VLM_CV_test.py 和 yolov8_seg_batch.py 的 sys.path 指向 scripts/ 而非项目根
+- 移除 app.py 和 contrast_VLM_CV_test_v2.py 中多余的 scripts/ sys.path
+
+### Changed
+- 全部模块 docstring 中的导入示例更新为 modules.* 风格
+- 重写 docs/PROJECT_STRUCTURE.md，反映 assets/data/outputs 三层目录布局
+- 更新 AGENTS.md 项目结构树和实验配置系统段落
+
 ## [2.0.0] - 2026-03-24
 
 ### Changed

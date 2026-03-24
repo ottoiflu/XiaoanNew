@@ -1,7 +1,7 @@
 """VLM API 客户端池管理
 
 提供 OpenAI 兼容客户端的资源池创建和 Round-Robin 任务分发。
-API 密钥统一从 config/settings.py 加载，避免硬编码。
+API 密钥统一从 modules/config/settings.py 加载，避免硬编码。
 """
 
 from __future__ import annotations
