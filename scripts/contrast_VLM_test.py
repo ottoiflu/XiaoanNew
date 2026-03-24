@@ -38,7 +38,7 @@ CONFIG = {
     "max_size": (768, 768),
     "quality": 80,
     "prompt_id": "standard_p6",
-    "scoring_config": "configs/scoring_default.yaml",  # None 使用一票否决
+    "scoring_config": "assets/configs/scoring_default.yaml",  # None 使用一票否决
 }
 
 DATA_FOLDERS = [
