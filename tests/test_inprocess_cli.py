@@ -4,6 +4,8 @@ import csv
 import runpy
 from unittest.mock import patch
 
+import pytest
+
 from modules.experiment.scoring import ScoringEngine
 from modules.experiment.scoring import main as scoring_main
 
@@ -93,16 +95,19 @@ class TestScoringBatchFnFp:
 class TestConfigRunpy:
     """用 runpy 覆盖 config.py __main__ block (lines 169-201)"""
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_list(self, capsys):
         with patch("sys.argv", ["config", "list"]):
             runpy.run_module("modules.experiment.config", run_name="__main__", alter_sys=True)
         assert "可用的实验配置" in capsys.readouterr().out
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_show(self, capsys):
         with patch("sys.argv", ["config", "show", "default"]):
             runpy.run_module("modules.experiment.config", run_name="__main__", alter_sys=True)
         assert "exp_name" in capsys.readouterr().out
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_create(self, capsys):
         with patch("sys.argv", ["config", "create"]):
             runpy.run_module("modules.experiment.config", run_name="__main__", alter_sys=True)
@@ -112,15 +117,18 @@ class TestConfigRunpy:
 class TestPromptRunpy:
     """用 runpy 覆盖 prompt/manager.py __main__ block (lines 137-155)"""
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_list(self, capsys):
         with patch("sys.argv", ["manager", "list"]):
             runpy.run_module("modules.prompt.manager", run_name="__main__", alter_sys=True)
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_show(self, capsys):
         with patch("sys.argv", ["manager", "show", "cv_enhanced_p4"]):
             runpy.run_module("modules.prompt.manager", run_name="__main__", alter_sys=True)
         assert len(capsys.readouterr().out) > 0
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_info(self, capsys):
         with patch("sys.argv", ["manager", "info", "cv_enhanced_p4"]):
             runpy.run_module("modules.prompt.manager", run_name="__main__", alter_sys=True)
@@ -130,6 +138,7 @@ class TestPromptRunpy:
 class TestMetricsRunpy:
     """用 runpy 覆盖 metrics.py __main__ block (lines 318-322)"""
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_main(self, capsys):
         runpy.run_module("modules.experiment.metrics", run_name="__main__", alter_sys=True)
         assert "测试报告" in capsys.readouterr().out
