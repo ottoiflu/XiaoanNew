@@ -28,6 +28,7 @@ from modules.experiment.scoring import ScoringEngine
 from modules.prompt.manager import load_prompt
 from modules.vlm.client import create_client_pool, distribute_tasks
 from modules.vlm.parser import normalize_label, parse_vlm_response
+from modules.vlm.retry import chat_completion_with_retry
 
 # ================= 实验配置 =================
 
@@ -88,7 +89,8 @@ def process_single_image(args):
 
         prompt_text = load_prompt(config["prompt_id"])
 
-        res = client.chat.completions.create(
+        res = chat_completion_with_retry(
+            client,
             model=config["model"],
             messages=[
                 {

@@ -4,6 +4,26 @@
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-03-24
+
+### Added
+- 新增 modules/vlm/retry.py: 基于 tenacity 的 API 调用重试机制
+  - 对 APITimeoutError / APIConnectionError / RateLimitError 自动指数退避重试（最多 3 次, 2s -> 4s -> 8s）
+  - 不可恢复异常（认证失败等）立即抛出，不浪费重试次数
+- 新增 tests/test_vlm_retry.py: 重试机制单元测试（19 tests）
+  - 可恢复异常触发重试并最终成功
+  - 重试耗尽后正确抛出最终异常
+  - 不可恢复异常立即抛出不重试
+  - 参数透传验证
+  - 脚本集成断言
+
+### Changed
+- contrast_VLM_test.py: VLM 调用改用 chat_completion_with_retry
+- contrast_VLM_CV_test_v2.py: VLM 调用改用 chat_completion_with_retry
+- app.py: OCR 调用改用 chat_completion_with_retry
+- modules/vlm/__init__.py: 导出 chat_completion_with_retry
+- requirements.txt: 新增 tenacity>=8.0 依赖
+
 ## [2.0.3] - 2026-03-24
 
 ### Added

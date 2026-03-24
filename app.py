@@ -32,6 +32,7 @@ from werkzeug.utils import secure_filename
 # 导入配置模块
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from modules.config.settings import settings
+from modules.vlm.retry import chat_completion_with_retry
 
 # 添加脚本目录到路径以导入推理模块
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts"))
@@ -107,7 +108,8 @@ def recognize_license_plate(image_bytes):
     try:
         base64_image = base64.b64encode(image_bytes).decode("utf-8")
 
-        response = ocr_client.chat.completions.create(
+        response = chat_completion_with_retry(
+            ocr_client,
             model=OCR_MODEL,
             messages=[
                 {
