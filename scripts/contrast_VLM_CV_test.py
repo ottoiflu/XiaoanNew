@@ -225,13 +225,10 @@ PROMPT_LIB = {
 
 # ================= API 配置 =================
 
-BASE_URL = "https://api.ppinfra.com/openai"
-API_KEYS = [
-    "REDACTED_API_KEY_3",
-    # "REDACTED_API_KEY_2",
-    "REDACTED_API_KEY_1",
-    "REDACTED_API_KEY_5",
-]
+from modules.config.settings import settings
+
+BASE_URL = settings.API_BASE_URL
+API_KEYS = settings.VLM_API_KEYS
 MAX_WORKERS = 15
 
 
