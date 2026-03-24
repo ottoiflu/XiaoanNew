@@ -12,7 +12,7 @@
 !.gitignore
 !.github/
 !.github/**
-
+outputs/
 # Python 缓存
 __pycache__/
 *.pyc
