@@ -13,6 +13,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from prompt_manager import load_prompt
+from utils.scoring import ScoringEngine
 
 # ================= 实验矩阵配置 =================
 
@@ -29,12 +30,21 @@ if not os.path.exists(SAVE_DIR):
 
 # 3. 实验配置 (此处仅设置一个配置，确保输出单一结果)
 CONFIG = {
-    "exp_name": "v1_standard_p4_baseline",
+    "exp_name": "v1_standard_p6_weighted",
     "model": "qwen/qwen3-vl-30b-a3b-instruct",
     "max_size": (768, 768),
     "quality": 80,
-    "prompt_id": "standard_p4"
+    "prompt_id": "standard_p6",
+    "scoring_config": "configs/scoring_default.yaml",  # 设为 None 使用一票否决
 }
+
+# 初始化评判引擎
+_scoring_engine = None
+if CONFIG.get("scoring_config"):
+    _scoring_engine = ScoringEngine.from_yaml(CONFIG["scoring_config"])
+    print(f">>> 加权评判引擎已加载: {CONFIG['scoring_config']} (阈值={_scoring_engine.config.threshold})")
+else:
+    print(">>> 使用一票否决评判模式")
 
 # 4. 提示词库
 PROMPT_LIB = {
@@ -388,7 +398,7 @@ def parse_vlm_response(response_text):
         # 1. 提取 JSON 块
         json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
         if not json_match:
-            return "error", "未匹配到JSON结构", "fail", "fail", "fail", "fail"
+            return "error", "未匹配到JSON结构", "fail", "fail", "fail", "fail", 0.0
             
         data = json.loads(json_match.group())
         scores = data.get("scores", {})
@@ -399,30 +409,21 @@ def parse_vlm_response(response_text):
         dist = str(scores.get("distance_status", "")).strip()
         cont = str(scores.get("context_status", "")).strip()
         
-        # 2. 脚本层面的权重打分判定逻辑 (Result Logic)
-        # 我们假设初始为 "yes"，只要遇到一个否决项就改为 "no"
-        res = "yes"
-        
-        # A. 构图否决
-        if "不合规" in comp:
-            res = "no"
-        # B. 角度否决
-        elif "不合规" in ang:
-            res = "no"
-        # C. 环境一票否决
-        elif "不合规" in cont:
-            res = "no"
-        # D. 距离严重超界否决 (注意：基本合规-压线 在这里仍保留为 yes)
-        elif "超界" in dist:
-            res = "no"
+        # 2. 评判逻辑：加权得分 或 一票否决
+        if _scoring_engine:
+            sr = _scoring_engine.score(comp, ang, dist, cont)
+            res = "yes" if sr.is_compliant else "no"
+            score_val = sr.final_score
+        else:
+            res = ScoringEngine.veto_judge(comp, ang, dist, cont)
+            score_val = 1.0 if res == "yes" else 0.0
             
-        # 合并分析理由用于后续展示
         reason = str(data.get("step_by_step_analysis", ""))
         
-        return res, reason, comp, ang, dist, cont
+        return res, reason, comp, ang, dist, cont, score_val
 
     except Exception as e:
-        return "error", f"解析崩溃: {str(e)} | 原文: {response_text[:50]}", "fail", "fail", "fail", "fail"
+        return "error", f"解析崩溃: {str(e)} | 原文: {response_text[:50]}", "fail", "fail", "fail", "fail", 0.0
 
 def process_single_image(args):
     image_name, folder_path, client, labels_dict, config = args
@@ -447,10 +448,10 @@ def process_single_image(args):
             max_tokens=600, temperature=0.1
         )
         vlm_out = res.choices[0].message.content
-        pred, reason, comp, ang, dist, cont = parse_vlm_response(vlm_out)
-        return [image_name, os.path.basename(folder_path), pred, gt, comp, ang, dist, cont, reason, round(time.time()-start_t, 3)]
+        pred, reason, comp, ang, dist, cont, w_score = parse_vlm_response(vlm_out)
+        return [image_name, os.path.basename(folder_path), pred, gt, comp, ang, dist, cont, reason, round(time.time()-start_t, 3), w_score]
     except Exception as e:
-        return [image_name, os.path.basename(folder_path), "error", gt, "err", "err", "err", "err", str(e), 0]
+        return [image_name, os.path.basename(folder_path), "error", gt, "err", "err", "err", "err", str(e), 0, 0.0]
 
 # ================= 评估与报告 =================
 
@@ -530,7 +531,7 @@ def main():
 
     with open(out_csv, 'w', newline='', encoding='utf-8-sig') as f_out:
         writer = csv.writer(f_out)
-        writer.writerow(['image_name', 'folder', 'result', 'ground_truth', 'composition', 'angle', 'distance', 'context', 'reason', 'latency_sec'])
+        writer.writerow(['image_name', 'folder', 'result', 'ground_truth', 'composition', 'angle', 'distance', 'context', 'reason', 'latency_sec', 'weighted_score'])
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             # 开启多线程推理

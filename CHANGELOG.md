@@ -4,6 +4,32 @@
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-03-24
+
+### Added
+- utils/scoring.py 加权评判引擎模块
+  - ScoringConfig / ScoringResult 数据类
+  - ScoringEngine：score() 单条评判、batch_evaluate() 批量重评估
+  - sweep_threshold() 阈值扫描、grid_search() 权重网格搜索
+  - 一票否决兼容方法 veto_judge()
+  - CLI 入口：支持 evaluate / sweep / grid 三种子命令
+  - 模糊匹配容错，支持状态标签格式差异
+- configs/scoring_default.yaml 评判配置（网格搜索最优参数）
+
+### Changed
+- scripts/contrast_VLM_test.py 集成加权评判引擎
+  - parse_vlm_response 评判逻辑从硬编码一票否决改为可配置引擎
+  - CONFIG 新增 scoring_config 字段，设为 None 可回退到一票否决
+  - CSV 输出新增 weighted_score 列，记录加权得分数值
+  - 启动时打印评判模式和阈值信息
+
+### Improved
+- 加权评判 F1=0.73 (对比一票否决 F1=0.71)，FP 30->29，FN 6->5
+- 网格搜索最优参数：comp=0.05 angle=0.25 dist=0.40 ctx=0.30 threshold=0.60
+- 关键发现：[基本合规-压线] 分值设为 0.0 比 0.5 效果更优（F1 0.74->0.75 on static CSV）
+- 角度单维度不合规可被其他合规维度补偿（FN 降低的核心机制）
+
+
 ## [1.4.0] - 2026-03-24
 
 ### Added

@@ -1,0 +1,29 @@
+# 加权评判配置 - 网格搜索最优版本
+# 基于 standard_p6 结果在 100 样本上搜索得到
+# F1=0.75 Acc=70% (对比一票否决: F1=0.71 Acc=64%)
+
+score_map:
+  composition:
+    "[合规]": 1.0
+    "[基本合规]": 0.7
+    "[不合规-构图]": 0.0
+    "[不合规-无参照]": 0.0
+  angle:
+    "[合规]": 1.0
+    "[不合规-角度]": 0.0
+  distance:
+    "[完全合规]": 1.0
+    "[基本合规-压线]": 0.0
+    "[不合规-超界]": 0.0
+  context:
+    "[合规]": 1.0
+    "[不合规-环境]": 0.0
+
+weights:
+  composition: 0.05
+  angle: 0.25
+  distance: 0.40
+  context: 0.30
+
+threshold: 0.60
+composition_gate: true
