@@ -5,14 +5,19 @@
 1. 计算分类指标 (Accuracy, Precision, Recall, F1)
 2. 生成混淆矩阵
 3. 格式化输出评估报告
+4. 维护实验排行榜 (Top 20)
 
 使用方式:
-    from utils.metrics import calculate_metrics, print_metrics_report
+    from utils.metrics import calculate_metrics, print_metrics_report, update_leaderboard
     
     metrics = calculate_metrics(predictions, ground_truths)
     print_metrics_report(metrics)
+    update_leaderboard("/path/to/test_outputs")
 """
 
+import csv
+import glob
+import os
 from typing import List, Dict, Any, Tuple
 from dataclasses import dataclass
 
@@ -181,6 +186,132 @@ def print_metrics_report(
         print(f"平均延迟: {metrics.avg_latency}s")
     
     print("=" * 60)
+
+
+
+# ================= 排行榜管理 =================
+
+LEADERBOARD_FILENAME = "leaderboard_top20.csv"
+LEADERBOARD_FIELDS = [
+    "rank", "f1", "acc", "pre", "rec",
+    "tp", "tn", "fp", "fn", "total", "invalid",
+    "avg_lat", "exp_name", "segmentor", "folders", "timestamp"
+]
+
+
+def _collect_all_summaries(test_outputs_dir: str) -> List[Dict[str, Any]]:
+    """
+    从 test_outputs 目录下收集所有实验汇总记录
+
+    扫描范围:
+    1. archived_experiments/all_experiments_summary.csv
+    2. 每个 exp_* 目录下的 all_experiments_summary.csv
+    """
+    records = []
+    seen = set()
+
+    summary_paths = []
+    archived = os.path.join(test_outputs_dir, "archived_experiments", "all_experiments_summary.csv")
+    if os.path.exists(archived):
+        summary_paths.append(archived)
+
+    for pattern in ["exp_*/all_experiments_summary.csv"]:
+        summary_paths.extend(glob.glob(os.path.join(test_outputs_dir, pattern)))
+
+    for path in summary_paths:
+        try:
+            with open(path, "r", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    f1_val = float(row.get("f1", 0))
+                    # 跳过无效实验（f1=0 且 total=0）
+                    total = int(row.get("total", 0))
+                    if f1_val == 0 and total == 0:
+                        continue
+
+                    # 去重键：实验名 + 时间戳
+                    dedup_key = (row.get("exp_name", ""), row.get("timestamp", ""))
+                    if dedup_key in seen:
+                        continue
+                    seen.add(dedup_key)
+
+                    records.append({
+                        "f1": f1_val,
+                        "acc": float(row.get("acc", 0)),
+                        "pre": float(row.get("pre", 0)),
+                        "rec": float(row.get("rec", 0)),
+                        "tp": int(row.get("tp", 0)),
+                        "tn": int(row.get("tn", 0)),
+                        "fp": int(row.get("fp", 0)),
+                        "fn": int(row.get("fn", 0)),
+                        "total": total,
+                        "invalid": int(row.get("invalid", 0)),
+                        "avg_lat": float(row.get("avg_lat", 0)),
+                        "exp_name": row.get("exp_name", ""),
+                        "segmentor": row.get("segmentor", ""),
+                        "folders": row.get("folders", ""),
+                        "timestamp": row.get("timestamp", ""),
+                    })
+        except Exception as e:
+            print(f"  [警告] 读取 {path} 失败: {e}")
+
+    return records
+
+
+def update_leaderboard(test_outputs_dir: str, top_n: int = 20) -> str:
+    """
+    更新实验排行榜，保留 F1 最高的前 N 条记录
+
+    排序规则: F1 降序 > Accuracy 降序
+
+    Args:
+        test_outputs_dir: test_outputs 目录的绝对路径
+        top_n: 保留的记录数，默认 20
+
+    Returns:
+        排行榜文件路径
+    """
+    records = _collect_all_summaries(test_outputs_dir)
+    if not records:
+        print("  [排行榜] 未找到任何实验记录")
+        return ""
+
+    # 按 F1 降序，Accuracy 降序排序
+    records.sort(key=lambda r: (r["f1"], r["acc"]), reverse=True)
+    top_records = records[:top_n]
+
+    # 添加排名
+    for i, rec in enumerate(top_records, 1):
+        rec["rank"] = i
+
+    # 写入 CSV
+    leaderboard_path = os.path.join(test_outputs_dir, LEADERBOARD_FILENAME)
+    with open(leaderboard_path, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.DictWriter(f, fieldnames=LEADERBOARD_FIELDS)
+        writer.writeheader()
+        writer.writerows(top_records)
+
+    # 打印排行榜
+    _print_leaderboard(top_records)
+
+    return leaderboard_path
+
+
+def _print_leaderboard(records: List[Dict[str, Any]]) -> None:
+    """格式化打印排行榜"""
+    print(f"\n{'='*80}")
+    print(f"{'实验排行榜 (Top ' + str(len(records)) + ')':^80}")
+    print(f"{'='*80}")
+    header = f"{'#':>3} | {'F1':>6} | {'Acc':>6} | {'Pre':>6} | {'Rec':>6} | {'Total':>5} | {'Lat':>5} | {'实验名称'}"
+    print(header)
+    print("-" * 80)
+    for r in records:
+        print(
+            f"{r['rank']:>3} | {r['f1']:>6.4f} | {r['acc']:>6.4f} | "
+            f"{r['pre']:>6.4f} | {r['rec']:>6.4f} | {r['total']:>5} | "
+            f"{r['avg_lat']:>5.1f} | {r['exp_name']}"
+        )
+    print(f"{'='*80}")
 
 
 if __name__ == "__main__":

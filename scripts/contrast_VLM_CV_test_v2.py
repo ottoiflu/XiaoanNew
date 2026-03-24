@@ -32,6 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # 添加项目根目录到路径以导入 config 模块
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config.settings import settings
+from utils.metrics import update_leaderboard
 
 # 导入 YOLOv8-Seg 推理模块
 from experiment_config import load_config, save_config, ExperimentConfig
@@ -501,6 +502,8 @@ def main():
 
     print(f"\n>>> 实验结束！详细结果已保存: {out_csv}")
 
+    # 更新排行榜
+    update_leaderboard(TEST_OUTPUT_ROOT)
 
 
 
@@ -633,6 +636,9 @@ def _run_experiment():
         dict_writer.writerow(metrics)
 
     print(f"\n>>> 实验结束！详细结果已保存: {out_csv}")
+
+    # 更新排行榜
+    update_leaderboard(TEST_OUTPUT_ROOT)
 
 
 if __name__ == "__main__":

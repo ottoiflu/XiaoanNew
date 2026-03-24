@@ -44,3 +44,6 @@ App_collected_dataset/
 
 # 环境变量 (敏感信息，不提交)
 .env
+
+# 本地环境覆盖文件 (不提交)
+.env.local

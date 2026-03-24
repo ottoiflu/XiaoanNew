@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-03-24
+
+### Added
+- 实验排行榜功能
+  - 在 utils/metrics.py 中新增 update_leaderboard()，自动汇总所有实验记录
+  - 按 F1 降序、Accuracy 降序排序，保留 Top 20 条记录
+  - 输出到 test_outputs/leaderboard_top20.csv
+  - 每次实验结束后自动刷新排行榜
+  - 终端格式化打印排行榜表格
+
+
 ## [1.2.0] - 2026-03-24
 
 ### Changed

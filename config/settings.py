@@ -5,36 +5,63 @@
 1. 从环境变量加载敏感配置
 2. 提供类型安全的配置访问
 3. 支持默认值和验证
+4. 多环境支持 (development/production)
 
 使用方式:
     from config.settings import settings
     
     api_keys = settings.VLM_API_KEYS  # 列表
     model = settings.VLM_MODEL
+    env = settings.ENVIRONMENT  # development/production
 """
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, List
 
-# 尝试加载 .env 文件
-try:
-    from dotenv import load_dotenv
+# 支持的环境阶段
+VALID_ENVIRONMENTS = ("development", "production", "testing")
+
+# 查找项目根目录
+project_root = Path(__file__).parent.parent
+
+
+def _load_env_files():
+    """按优先级加载环境配置文件"""
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        print("[Settings] python-dotenv 未安装，仅使用系统环境变量")
+        return
     
-    # 查找项目根目录的 .env 文件
-    project_root = Path(__file__).parent.parent
-    env_path = project_root / ".env"
+    # 确定当前环境
+    env_stage = os.getenv("ENVIRONMENT", "development").lower()
+    if env_stage not in VALID_ENVIRONMENTS:
+        print(f"[Settings] 无效的 ENVIRONMENT={env_stage}，使用 development")
+        env_stage = "development"
     
-    if env_path.exists():
-        load_dotenv(env_path)
-        print(f"[Settings] 已加载环境变量: {env_path}")
+    # 加载顺序: .env.local > .env.{stage} > .env
+    env_files = [
+        project_root / ".env",
+        project_root / f".env.{env_stage}",
+        project_root / ".env.local",  # 本地覆盖 (不提交到 git)
+    ]
+    
+    loaded = []
+    for env_file in env_files:
+        if env_file.exists():
+            load_dotenv(env_file, override=True)
+            loaded.append(env_file.name)
+    
+    if loaded:
+        print(f"[Settings] 已加载环境配置: {' -> '.join(loaded)} (环境: {env_stage})")
     else:
         print(f"[Settings] 未找到 .env 文件，使用系统环境变量")
-        
-except ImportError:
-    print("[Settings] python-dotenv 未安装，仅使用系统环境变量")
-    project_root = Path(__file__).parent.parent
+
+
+# 加载环境配置
+_load_env_files()
 
 
 def get_env(key: str, default: Optional[str] = None, required: bool = False) -> Optional[str]:
@@ -71,6 +98,9 @@ def get_env_int(key: str, default: int = 0) -> int:
 class Settings:
     """应用配置类"""
     
+    # 环境阶段
+    ENVIRONMENT: str
+    
     # API Keys (支持多个)
     VLM_API_KEYS: List[str]
     OCR_API_KEY: str
@@ -97,12 +127,27 @@ class Settings:
         """兼容属性：返回第一个 VLM API Key"""
         return self.VLM_API_KEYS[0] if self.VLM_API_KEYS else ""
     
+    @property
+    def is_development(self) -> bool:
+        """是否为开发环境"""
+        return self.ENVIRONMENT == "development"
+    
+    @property
+    def is_production(self) -> bool:
+        """是否为生产环境"""
+        return self.ENVIRONMENT == "production"
+    
     @classmethod
     def load(cls) -> "Settings":
         """从环境变量加载配置"""
-        project_root = Path(__file__).parent.parent
+        env = get_env("ENVIRONMENT", "development").lower()
+        if env not in VALID_ENVIRONMENTS:
+            env = "development"
         
         return cls(
+            # 环境
+            ENVIRONMENT=env,
+            
             # API Keys - 敏感信息从环境变量获取
             VLM_API_KEYS=get_env_list("VLM_API_KEYS"),
             OCR_API_KEY=get_env("OCR_API_KEY", ""),
@@ -118,7 +163,7 @@ class Settings:
             
             # 服务配置
             FLASK_PORT=get_env_int("FLASK_PORT", 5000),
-            DEBUG_MODE=get_env_bool("DEBUG_MODE", False),
+            DEBUG_MODE=get_env_bool("DEBUG_MODE", env == "development"),
             MAX_WORKERS=get_env_int("MAX_WORKERS", 15),
             
             # 路径
@@ -146,7 +191,7 @@ class Settings:
             return s[:show] + "*" * (len(s) - show)
         
         print("=" * 50)
-        print("[配置状态]")
+        print(f"[配置状态] 环境: {self.ENVIRONMENT}")
         print(f"  VLM_API_KEYS: {len(self.VLM_API_KEYS)} 个")
         for i, k in enumerate(self.VLM_API_KEYS):
             print(f"    [{i}] {mask(k)}")
@@ -156,6 +201,7 @@ class Settings:
         print(f"  YOLO_WEIGHTS: {self.YOLO_WEIGHTS}")
         print(f"  INFERENCE_DEVICE: {self.INFERENCE_DEVICE}")
         print(f"  MAX_WORKERS: {self.MAX_WORKERS}")
+        print(f"  DEBUG_MODE: {self.DEBUG_MODE}")
         print("=" * 50)
         
         warnings = self.validate()
