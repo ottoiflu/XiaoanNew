@@ -14,41 +14,41 @@
 XiaoanNew/
 ├── app.py                    # Flask 后端 API 服务入口
 ├── mask_inference.py         # MaskRCNN 推理模块（备用）
+├── config/                   # Python 配置模块
+│   ├── __init__.py
+│   └── settings.py           # 统一配置加载（环境变量）
+├── configs/                  # 实验配置 YAML
+│   ├── default.yaml          # 默认实验配置
+│   └── *.yaml                # 自定义实验配置
+├── prompts/                  # 提示词配置 YAML
+│   └── cv_enhanced_p4.yaml   # 当前使用的提示词
 ├── scripts/                  # 脚本工具目录
 │   ├── yolov8_seg_inference.py    # YOLOv8-Seg 推理模块（主用）
 │   ├── yolov8_seg_batch.py        # 批量处理脚本
-│   ├── contrast_VLM_CV_test.py    # VLM+CV 联合测试脚本
-│   ├── contrast_VLM_CV_test_v2.py # 联合测试脚本（轮廓版）
+│   ├── contrast_VLM_CV_test_v2.py # 联合测试脚本（主用）
+│   ├── experiment_config.py       # 实验配置管理模块
 │   ├── prompt_manager.py          # 提示词管理模块
-│   ├── prompts/                   # 提示词配置目录
-│   │   └── cv_enhanced_p4.yaml    # 当前使用的提示词
 │   └── tool/                      # 辅助工具脚本
+├── utils/                    # 公共工具模块
+│   ├── __init__.py
+│   └── metrics.py            # 评估指标计算
 ├── yolo/                     # YOLO 训练相关
-│   ├── train_yolov8_seg.py        # YOLOv8 实例分割训练脚本
-│   └── data/coco/                 # 数据集目录
+│   ├── train_yolov8_seg.py
+│   └── data/coco/
 ├── Compliance_test_data/     # 清洗后的测试数据集
-│   ├── yes_val/                   # 正样本测试集 (50张, 精简)
-│   ├── no_val/                    # 负样本测试集 (50张, 精简)
-│   ├── yes_val_all/               # 正样本完整集 (440张)
-│   ├── no_val_all/                # 负样本完整集 (421张)
-│   ├── positive_extra/            # 去重正样本 (不含验证集)
-│   └── negative_extra/            # 去重负样本 (不含验证集)
+│   ├── yes_val/              # 正样本测试集 (50张)
+│   ├── no_val/               # 负样本测试集 (50张)
+│   ├── yes_val_all/          # 正样本完整集 (440张)
+│   └── no_val_all/           # 负样本完整集 (421张)
 ├── test_outputs/             # 测试输出目录
-│   ├── exp_{timestamp}_{name}/    # 每次实验独立目录
-│   │   ├── results.csv
-│   │   └── visuals/
-│   └── archived_experiments/      # 历史实验存档
-├── App_collected_dataset/    # 原始采集数据（含冗余）
-└── weights/                  # 模型权重文件
+│   └── exp_{timestamp}_{name}/
+├── weights/                  # 模型权重文件
+│   └── best.pt
+├── requirements.txt          # pip 依赖清单
+├── pyproject.toml            # 项目配置
+└── .env.example              # 环境变量模板
 ```
 
-## 类别定义
-
-| ID | 名称 | 描述 |
-|----|------|------|
-| 0 | Electric bike | 电动车 |
-| 1 | Curb | 马路牙子 |
-| 2 | parking lane | 停车线 |
 | 3 | Tactile paving | 盲道 |
 
 ---
@@ -190,7 +190,7 @@ data/coco/
 
 3. **dataset.yaml 配置**:
 ```yaml
-path: /root/XiaoanNew/yolo/data/coco
+path: /root/XiaoanNew/MMLab/mmyolo/data/coco
 train: images/train2017
 val: images/val2017
 
@@ -266,25 +266,8 @@ work_dirs/yolov8l_seg/weights/best.pt
 | model | VLM 模型名称 |
 | max_size | 图片最大尺寸 (768, 768) |
 | quality | JPEG 压缩质量 (80) |
-| prompt_id | 提示词文件名 (不含扩展名) |
+| prompt_id | 使用的 Prompt ID |
 | conf_threshold | 分割置信度阈值 (0.6) |
-
-### 提示词管理
-
-提示词配置存放在 `scripts/prompts/` 目录下，使用 YAML 格式：
-
-```bash
-# 查看所有可用提示词
-python scripts/prompt_manager.py list
-
-# 查看提示词详情
-python scripts/prompt_manager.py info cv_enhanced_p4
-
-# 显示提示词内容
-python scripts/prompt_manager.py show cv_enhanced_p4
-```
-
-添加新提示词只需创建新的 YAML 文件，格式参考 `cv_enhanced_p4.yaml`。
 
 ### 几何计算
 
@@ -294,7 +277,7 @@ python scripts/prompt_manager.py show cv_enhanced_p4
 
 ### 输出格式
 
-CSV 文件保存在 `test_outputs/exp_{timestamp}_{name}/` 目录，包含:
+CSV 文件保存在 `experiment_outputs/` 目录，包含:
 - 图片名称
 - 真实标签
 - VLM 预测结果
@@ -362,12 +345,127 @@ python app.py
 3. 重要的配置参数应集中在脚本顶部的「配置区域」中定义
 4. 模型权重路径使用绝对路径，便于跨目录调用
 
+## 实验配置系统
+
+
+
+v1.0.0 引入了解耦的实验配置系统，支持通过 YAML 文件管理实验参数。
+
+
+
+### 目录结构
+
+```
+XiaoanNew/
+├── configs/                   # 实验配置目录
+│   ├── default.yaml          # 默认配置模板
+│   └── *.yaml                # 自定义实验配置
+├── prompts/                   # 提示词配置目录
+│   └── cv_enhanced_p4.yaml   # 当前使用的提示词
+└── scripts/
+    ├── experiment_config.py   # 配置管理模块
+    └── prompt_manager.py      # 提示词管理模块
+```
+
+scripts/
+
+├── experiment_config.py       # 配置管理模块
+
+├── prompt_manager.py          # 提示词管理模块
+
+├── configs/                   # 实验配置目录
+
+│   ├── default.yaml          # 默认配置模板
+
+│   └── *.yaml                # 自定义实验配置
+
+└── prompts/                   # 提示词配置目录
+
+    └── cv_enhanced_p4.yaml   # 当前使用的提示词
+
+```
+
+
+
+### 使用方式
+
+
+
+```bash
+
+# 列出可用配置
+
+python contrast_VLM_CV_test_v2.py --list-configs
+
+
+
+# 使用配置文件运行实验
+
+python contrast_VLM_CV_test_v2.py --config configs/default.yaml
+
+
+
+# 无参数运行（使用脚本内置默认配置）
+
+python contrast_VLM_CV_test_v2.py
+
+```
+
+
+
+### 配置字段说明
+
+
+
+| 字段 | 类型 | 说明 |
+
+|------|------|------|
+
+| exp_name | string | 实验名称，用于生成输出目录 |
+
+| model | string | VLM 模型路径 |
+
+| prompt_id | string | 提示词文件名（无扩展名） |
+
+| max_size | [int, int] | 图像最大尺寸 |
+
+| quality | int | JPEG 压缩质量 |
+
+| data_folders | list | 数据目录列表 |
+
+| max_workers | int | 并发线程数 |
+
+
+
+### 配置备份
+
+
+
+每次实验运行时，配置文件会自动备份到实验输出目录：
+
+```
+
+test_outputs/exp_{timestamp}_{name}/
+
+├── experiment_config.yaml    # 配置快照
+
+├── {exp_name}.csv           # 实验结果
+
+└── visuals/                 # 可视化输出
+
+```
+
+
+
+---
+
+
 ## 开发约定
 
 1. 推理模块应提供统一接口：`predict()` 返回结构化字典，`predict_memory()` 返回 PNG 字节流
 2. 新增功能时优先扩展 `YOLOv8SegInference` 类，保持接口向后兼容
 3. 实验脚本命名格式：`{功能}_{模型}_{版本}.py`
-4. 实验输出格式：`test_outputs/exp_{timestamp}_{exp_name}/` 目录结构
+4. 实验输出 CSV 命名格式：`results_{model}_{size}_q{quality}_p{prompt_id}_detailed.csv`
 
 ## 注意事项
 

@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-03-24
+
+### Changed
+- 重组配置目录结构
+  - 将 `scripts/configs/` 移至项目根目录 `configs/`
+  - 将 `scripts/prompts/` 移至项目根目录 `prompts/`
+  - 更新 experiment_config.py 和 prompt_manager.py 路径引用
+- 更新 .gitignore 配置规则，确保 YAML 文件正确追踪
+- 同步 AGENTS.md 和 PROJECT_STRUCTURE.md 文档
+
+### Fixed
+- 修复配置目录迁移后的 Git 追踪问题
+
 ## [1.1.0] - 2026-03-24
 
 ### Security
