@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-03-24
+
+### Security
+- 移除 scripts/contrast_VLM_CV_test.py 中硬编码的 3 个 VLM API Key，改为从 settings 读取
+- 使用 git-filter-repo 清除 Git 历史中全部 5 个泄露的 API Key（替换为 REDACTED_API_KEY_*）
+
 ## [2.0.1] - 2026-03-24
 
 ### Fixed
