@@ -29,6 +29,9 @@ import cv2  # 需要引入 opencv 画轮廓
 
 # 添加脚本目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# 添加项目根目录到路径以导入 config 模块
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config.settings import settings
 
 # 导入 YOLOv8-Seg 推理模块
 from experiment_config import load_config, save_config, ExperimentConfig
@@ -104,13 +107,10 @@ def get_prompt(prompt_id: str) -> str:
 
 # ================= API 配置 =================
 
-BASE_URL = "https://api.ppinfra.com/openai"
-API_KEYS = [
-    "REDACTED_API_KEY_3",
-    "REDACTED_API_KEY_1",
-    "REDACTED_API_KEY_5"
-]
-MAX_WORKERS = 15
+# API 配置从环境变量加载
+BASE_URL = settings.API_BASE_URL
+API_KEYS = settings.VLM_API_KEYS
+MAX_WORKERS = settings.MAX_WORKERS
 
 
 # ================= 新增：几何计算工具函数 =================

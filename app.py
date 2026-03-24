@@ -29,6 +29,10 @@ from PIL import Image
 # 引入 OpenAI 客户端用于调用云端 OCR
 from openai import OpenAI
 
+# 导入配置模块
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from config.settings import settings
 # 添加脚本目录到路径以导入推理模块
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts"))
 
@@ -47,9 +51,10 @@ os.makedirs(UPLOAD_ROOT, exist_ok=True)
 os.makedirs(TEMP_PROCESS_DIR, exist_ok=True)
 
 # --- 云端 OCR 配置 ---
-OCR_API_KEY = "REDACTED_API_KEY_4"
-OCR_BASE_URL = "https://api.ppinfra.com/openai"
-OCR_MODEL = "qwen/qwen3-vl-8b-instruct"
+# OCR 配置从环境变量加载
+OCR_API_KEY = settings.OCR_API_KEY
+OCR_BASE_URL = settings.API_BASE_URL
+OCR_MODEL = settings.OCR_MODEL
 
 try:
     ocr_client = OpenAI(base_url=OCR_BASE_URL, api_key=OCR_API_KEY)

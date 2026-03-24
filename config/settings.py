@@ -9,14 +9,14 @@
 使用方式:
     from config.settings import settings
     
-    api_key = settings.VLM_API_KEY
+    api_keys = settings.VLM_API_KEYS  # 列表
     model = settings.VLM_MODEL
 """
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 # 尝试加载 .env 文件
 try:
@@ -45,6 +45,14 @@ def get_env(key: str, default: Optional[str] = None, required: bool = False) -> 
     return value
 
 
+def get_env_list(key: str, default: List[str] = None, sep: str = ",") -> List[str]:
+    """获取列表类型环境变量（逗号分隔）"""
+    value = os.getenv(key, "")
+    if not value:
+        return default or []
+    return [v.strip() for v in value.split(sep) if v.strip()]
+
+
 def get_env_bool(key: str, default: bool = False) -> bool:
     """获取布尔类型环境变量"""
     value = os.getenv(key, str(default)).lower()
@@ -63,8 +71,8 @@ def get_env_int(key: str, default: int = 0) -> int:
 class Settings:
     """应用配置类"""
     
-    # API Keys
-    VLM_API_KEY: str
+    # API Keys (支持多个)
+    VLM_API_KEYS: List[str]
     OCR_API_KEY: str
     
     # API 端点
@@ -84,14 +92,19 @@ class Settings:
     # 路径配置
     PROJECT_ROOT: Path
     
+    @property
+    def VLM_API_KEY(self) -> str:
+        """兼容属性：返回第一个 VLM API Key"""
+        return self.VLM_API_KEYS[0] if self.VLM_API_KEYS else ""
+    
     @classmethod
     def load(cls) -> "Settings":
         """从环境变量加载配置"""
         project_root = Path(__file__).parent.parent
         
         return cls(
-            # API Keys - 敏感信息必须从环境变量获取
-            VLM_API_KEY=get_env("VLM_API_KEY", ""),
+            # API Keys - 敏感信息从环境变量获取
+            VLM_API_KEYS=get_env_list("VLM_API_KEYS"),
             OCR_API_KEY=get_env("OCR_API_KEY", ""),
             
             # API 端点
@@ -116,8 +129,8 @@ class Settings:
         """验证配置完整性，返回警告列表"""
         warnings = []
         
-        if not self.VLM_API_KEY:
-            warnings.append("VLM_API_KEY 未设置，VLM 调用将失败")
+        if not self.VLM_API_KEYS:
+            warnings.append("VLM_API_KEYS 未设置，VLM 调用将失败")
         if not self.OCR_API_KEY:
             warnings.append("OCR_API_KEY 未设置，OCR 调用将失败")
         if not Path(self.YOLO_WEIGHTS).exists():
@@ -134,7 +147,9 @@ class Settings:
         
         print("=" * 50)
         print("[配置状态]")
-        print(f"  VLM_API_KEY: {mask(self.VLM_API_KEY)}")
+        print(f"  VLM_API_KEYS: {len(self.VLM_API_KEYS)} 个")
+        for i, k in enumerate(self.VLM_API_KEYS):
+            print(f"    [{i}] {mask(k)}")
         print(f"  OCR_API_KEY: {mask(self.OCR_API_KEY)}")
         print(f"  API_BASE_URL: {self.API_BASE_URL}")
         print(f"  VLM_MODEL: {self.VLM_MODEL}")

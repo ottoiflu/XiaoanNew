@@ -6,6 +6,11 @@
 
 ## [1.1.0] - 2026-03-24
 
+### Security
+- 从 app.py 和测试脚本中移除硬编码 API Key
+- 所有 API Key 现在从 .env 文件加载
+
+
 
 
 ### Added
