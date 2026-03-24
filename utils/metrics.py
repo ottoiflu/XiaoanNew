@@ -210,13 +210,7 @@ def _collect_all_summaries(test_outputs_dir: str) -> List[Dict[str, Any]]:
     records = []
     seen = set()
 
-    summary_paths = []
-    archived = os.path.join(test_outputs_dir, "archived_experiments", "all_experiments_summary.csv")
-    if os.path.exists(archived):
-        summary_paths.append(archived)
-
-    for pattern in ["exp_*/all_experiments_summary.csv"]:
-        summary_paths.extend(glob.glob(os.path.join(test_outputs_dir, pattern)))
+    summary_paths = glob.glob(os.path.join(test_outputs_dir, "exp_*/all_experiments_summary.csv"))
 
     for path in summary_paths:
         try:
