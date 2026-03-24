@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-03-24
+
+### Added
+- 新增 pytest 单元测试套件（250 tests），覆盖全部 9 个核心模块
+- 新增 tests/conftest.py 共享 fixtures（图片、掩码、标签目录、评分配置等）
+- 新增 tests/test_network_resilience.py 网络异常 mock 测试（38 tests）：
+  - VLM API：连接超时、服务不可达、速率限制、响应截断、空 choices
+  - OCR API：超时/连接失败/限频均优雅降级返回 None
+  - 客户端池：部分/全部 key 失效、round-robin 容错
+  - 畸形响应：截断 JSON、HTML 错误页、BOM、二进制乱码、超大响应
+
+### Documented
+- 测试明确记录了当前系统无重试机制的现状（TestVLMNoRetryBehavior）
+
+
 ## [2.0.2] - 2026-03-24
 
 ### Security
