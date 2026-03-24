@@ -9,6 +9,10 @@ import concurrent.futures
 from openai import OpenAI
 from tqdm import tqdm
 from PIL import Image
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from prompt_manager import load_prompt
 
 # ================= 实验矩阵配置 =================
 
@@ -25,11 +29,11 @@ if not os.path.exists(SAVE_DIR):
 
 # 3. 实验配置 (此处仅设置一个配置，确保输出单一结果)
 CONFIG = {
-    "exp_name": "qwen3-vl-30b-a3b-instruct_cv_enhanced_p3_compare",
+    "exp_name": "v1_standard_p4_baseline",
     "model": "qwen/qwen3-vl-30b-a3b-instruct",
     "max_size": (768, 768),
     "quality": 80,
-    "prompt_id": "cv_enhanced_p3_compare"
+    "prompt_id": "standard_p4"
 }
 
 # 4. 提示词库
@@ -437,7 +441,7 @@ def process_single_image(args):
         res = client.chat.completions.create(
             model=config['model'],
             messages=[{"role": "user", "content": [
-                {"type": "text", "text": PROMPT_LIB[config['prompt_id']]},
+                {"type": "text", "text": PROMPT_LIB.get(config['prompt_id']) or load_prompt(config['prompt_id'])},
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_img}"}}
             ]}],
             max_tokens=600, temperature=0.1

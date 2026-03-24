@@ -4,6 +4,29 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-03-24
+
+### Added
+- 评估标准文档 docs/idea.md，定义四维度停车合规判定规范
+- v1 优化提示词系列：standard_p6 / standard_p7 / standard_p8
+- v2 优化提示词系列：cv_enhanced_p5 / cv_enhanced_p6
+- v1 基线对比实验 (standard_p4) 验证优化效果
+- v2 实验配置：configs/v2_optimized_p5.yaml, configs/v2_optimized_p6.yaml
+
+### Changed
+- scripts/contrast_VLM_test.py 新增 prompt_manager 回退加载支持，可使用外部 YAML 提示词
+
+### Improved
+- v1 最优提示词 standard_p6 相比基线 standard_p4 F1 提升 48% (0.48 -> 0.71)
+- 修正 cv_enhanced_p4 中的角度规则错误（标线类参照物允许平行或垂直）
+- 简化距离判定标准，移除不准确的 Df/Dr 深度估算，改用视觉观察
+
+### Analysis
+- v1 (纯 VLM) 方案在当前测试集上显著优于 v2 (CV+VLM)
+- v2 的 CV 轮廓可视化导致 VLM 在距离维度产生系统性误判
+- 提示词严格度与召回率呈负相关，需在精确率和召回率间权衡
+
+
 ## [1.3.0] - 2026-03-24
 
 ### Added
