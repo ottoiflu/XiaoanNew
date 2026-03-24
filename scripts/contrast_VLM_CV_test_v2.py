@@ -372,7 +372,7 @@ def apply_config(config_path: str):
 if __name__ == "__main__":
     args = parse_args()
     if args.list_configs:
-        config_dir = os.path.join(_PROJECT_ROOT, "configs")
+        config_dir = os.path.join(_PROJECT_ROOT, "assets", "configs")
         if os.path.exists(config_dir):
             configs = [f for f in os.listdir(config_dir) if f.endswith(".yaml")]
             print("可用配置: " + ", ".join(configs))
