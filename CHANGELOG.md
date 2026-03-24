@@ -4,6 +4,30 @@
 
 ## [Unreleased]
 
+## [2.1.2] - 2026-03-24
+
+### Added
+- 新增 tests/test_inprocess_cli.py: 进程内 CLI 入口覆盖测试（14 tests）
+  - scoring.py main() 的 evaluate / sweep / grid / 无子命令四个分支
+  - scoring.py batch_evaluate() 的 fn / fp 分支覆盖
+  - config.py / prompt/manager.py / metrics.py 的 __main__ 入口块（runpy）
+- 新增 tests/test_cli_and_branches.py: CLI 子进程 + 剩余分支测试（18 tests）
+  - scoring CLI 的 evaluate / sweep / grid 端到端验证
+  - config CLI 的 list / show / create 端到端验证
+  - prompt/manager CLI 的 list / show / info 端到端验证
+  - settings.py dotenv 降级路径 + .env 文件加载
+  - scoring batch_evaluate 中文 ground_truth 解析
+
+### Changed
+- 测试规模 315 -> **347**（+32 tests）
+- 模块覆盖率大幅提升:
+  - experiment/config.py: 73% -> **100%**
+  - experiment/scoring.py: 79% -> **99%** (仅剩 `if __name__` 1 行)
+  - prompt/manager.py: 81% -> **100%**
+  - experiment/metrics.py: 95% -> **98%**
+  - 总体: 65% -> **72%** (排除 GPU 推理模块后有效覆盖率更高)
+
+
 ## [2.1.1] - 2026-03-24
 
 ### Added
