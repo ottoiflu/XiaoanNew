@@ -150,7 +150,7 @@ def list_configs(configs_dir: Optional[str] = None) -> List[str]:
     """列出所有可用的配置文件"""
     if configs_dir is None:
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        configs_dir = os.path.join(script_dir, "configs")
+        configs_dir = os.path.join(script_dir, "..", "configs")
     
     if not os.path.exists(configs_dir):
         return []

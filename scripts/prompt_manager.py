@@ -40,7 +40,7 @@ class PromptManager:
     def __init__(self, prompts_dir: Optional[str] = None):
         if prompts_dir is None:
             script_dir = os.path.dirname(os.path.abspath(__file__))
-            prompts_dir = os.path.join(script_dir, "prompts")
+            prompts_dir = os.path.join(script_dir, "..", "prompts")
         
         self.prompts_dir = prompts_dir
         self._cache: Dict[str, Prompt] = {}
