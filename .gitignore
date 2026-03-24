@@ -1,24 +1,46 @@
+# 默认忽略所有
 *
+
+# 保留目录结构
 !*/
+
+# 源代码
 !*.py
 !*.md
+
+# Git 配置
 !.gitignore
 !.github/
 !.github/**
+
+# Python 缓存
 __pycache__/
-*.pyc!docs/
+*.pyc
+
+# 文档
+!docs/
 !docs/**
+
+# 模型权重
 !weights/
 !weights/*.pt
 *.pt
+
+# 数据目录 (忽略)
 App_collected_dataset/
-App_collected_dataset/*!scripts/prompts/
-!scripts/prompts/*.yaml
-!scripts/configs/*.yaml
 
-# 环境变量 (敏感信息)
+# 配置文件
+!configs/
+!configs/*.yaml
+!prompts/
+!prompts/*.yaml
+!config/
+!config/*.py
+
+# 项目配置
+!requirements.txt
+!pyproject.toml
+!.env.example
+
+# 环境变量 (敏感信息，不提交)
 .env
-
-# 配置模块
-
-# 项目配置文件
