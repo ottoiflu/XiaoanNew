@@ -9,7 +9,7 @@
 
 使用方式:
     from utils.metrics import calculate_metrics, print_metrics_report, update_leaderboard
-    
+
     metrics = calculate_metrics(predictions, ground_truths)
     print_metrics_report(metrics)
     update_leaderboard("/path/to/test_outputs")
@@ -18,13 +18,14 @@
 import csv
 import glob
 import os
-from typing import List, Dict, Any, Tuple
 from dataclasses import dataclass
+from typing import Any, Dict, List
 
 
 @dataclass
 class BinaryMetrics:
     """二分类评估指标"""
+
     accuracy: float
     precision: float
     recall: float
@@ -36,7 +37,7 @@ class BinaryMetrics:
     total: int
     invalid: int
     avg_latency: float = 0.0
-    
+
     @classmethod
     def from_confusion_matrix(cls, tp: int, tn: int, fp: int, fn: int) -> "BinaryMetrics":
         """从混淆矩阵直接构建指标"""
@@ -46,9 +47,16 @@ class BinaryMetrics:
         rec = tp / (tp + fn) if (tp + fn) else 0
         f1 = 2 * pre * rec / (pre + rec) if (pre + rec) else 0
         return cls(
-            accuracy=round(acc, 4), precision=round(pre, 4),
-            recall=round(rec, 4), f1_score=round(f1, 4),
-            tp=tp, tn=tn, fp=fp, fn=fn, total=total, invalid=0,
+            accuracy=round(acc, 4),
+            precision=round(pre, 4),
+            recall=round(rec, 4),
+            f1_score=round(f1, 4),
+            tp=tp,
+            tn=tn,
+            fp=fp,
+            fn=fn,
+            total=total,
+            invalid=0,
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -71,38 +79,35 @@ class BinaryMetrics:
 def normalize_label(label: str) -> str:
     """标准化标签值，复用 vlm_parser 的统一实现"""
     from utils.vlm_parser import normalize_label as _normalize
+
     result = _normalize(label)
     return result if result else "unknown"
 
 
-def calculate_metrics(
-    predictions: List[str],
-    ground_truths: List[str],
-    latencies: List[float] = None
-) -> BinaryMetrics:
+def calculate_metrics(predictions: List[str], ground_truths: List[str], latencies: List[float] = None) -> BinaryMetrics:
     """
     计算二分类评估指标
-    
+
     Args:
         predictions: 预测结果列表
         ground_truths: 真实标签列表
         latencies: 延迟时间列表（可选）
-        
+
     Returns:
         BinaryMetrics 对象
     """
     tp, tn, fp, fn, invalid = 0, 0, 0, 0, 0
     valid_latencies = []
-    
+
     for i, (pred, gt) in enumerate(zip(predictions, ground_truths)):
         pred_norm = normalize_label(pred)
         gt_norm = normalize_label(gt)
-        
+
         # 处理无效预测
         if pred_norm == "unknown" or pred == "error":
             invalid += 1
             continue
-        
+
         # 计算混淆矩阵
         if gt_norm == "yes":
             if pred_norm == "yes":
@@ -114,11 +119,11 @@ def calculate_metrics(
                 tn += 1
             else:
                 fp += 1
-        
+
         # 收集延迟
         if latencies and i < len(latencies) and latencies[i] > 0:
             valid_latencies.append(latencies[i])
-    
+
     # 计算指标
     total = tp + tn + fp + fn
     accuracy = (tp + tn) / total if total > 0 else 0
@@ -126,7 +131,7 @@ def calculate_metrics(
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
     avg_lat = sum(valid_latencies) / len(valid_latencies) if valid_latencies else 0
-    
+
     return BinaryMetrics(
         accuracy=accuracy,
         precision=precision,
@@ -142,20 +147,16 @@ def calculate_metrics(
     )
 
 
-def print_metrics_report(
-    metrics: BinaryMetrics,
-    title: str = "评估报告",
-    show_confusion_matrix: bool = True
-) -> None:
+def print_metrics_report(metrics: BinaryMetrics, title: str = "评估报告", show_confusion_matrix: bool = True) -> None:
     """
     打印格式化的评估报告
-    
+
     Args:
         metrics: BinaryMetrics 对象
         title: 报告标题
         show_confusion_matrix: 是否显示混淆矩阵
     """
-    print(f"\n{'='*20} {title} {'='*20}")
+    print(f"\n{'=' * 20} {title} {'=' * 20}")
     print(f"总样本数 (Total): {metrics.total}")
     print(f"无效预测 (Invalid): {metrics.invalid}")
     print("-" * 60)
@@ -163,7 +164,7 @@ def print_metrics_report(
     print(f"精确率 (Precision): {metrics.precision:.2%}")
     print(f"召回率 (Recall)   : {metrics.recall:.2%}")
     print(f"F1分数 (F1-Score) : {metrics.f1_score:.2f}")
-    
+
     if show_confusion_matrix:
         print("-" * 60)
         print("混淆矩阵:")
@@ -171,21 +172,33 @@ def print_metrics_report(
         print(f"  [TN] 正确预测违规: {metrics.tn}")
         print(f"  [FP] 误判为合规: {metrics.fp}")
         print(f"  [FN] 误判为违规: {metrics.fn}")
-    
+
     if metrics.avg_latency > 0:
         print(f"平均延迟: {metrics.avg_latency}s")
-    
-    print("=" * 60)
 
+    print("=" * 60)
 
 
 # ================= 排行榜管理 =================
 
 LEADERBOARD_FILENAME = "leaderboard_top20.csv"
 LEADERBOARD_FIELDS = [
-    "rank", "f1", "acc", "pre", "rec",
-    "tp", "tn", "fp", "fn", "total", "invalid",
-    "avg_lat", "exp_name", "segmentor", "folders", "timestamp"
+    "rank",
+    "f1",
+    "acc",
+    "pre",
+    "rec",
+    "tp",
+    "tn",
+    "fp",
+    "fn",
+    "total",
+    "invalid",
+    "avg_lat",
+    "exp_name",
+    "segmentor",
+    "folders",
+    "timestamp",
 ]
 
 
@@ -219,23 +232,25 @@ def _collect_all_summaries(test_outputs_dir: str) -> List[Dict[str, Any]]:
                         continue
                     seen.add(dedup_key)
 
-                    records.append({
-                        "f1": f1_val,
-                        "acc": float(row.get("acc", 0)),
-                        "pre": float(row.get("pre", 0)),
-                        "rec": float(row.get("rec", 0)),
-                        "tp": int(row.get("tp", 0)),
-                        "tn": int(row.get("tn", 0)),
-                        "fp": int(row.get("fp", 0)),
-                        "fn": int(row.get("fn", 0)),
-                        "total": total,
-                        "invalid": int(row.get("invalid", 0)),
-                        "avg_lat": float(row.get("avg_lat", 0)),
-                        "exp_name": row.get("exp_name", ""),
-                        "segmentor": row.get("segmentor", ""),
-                        "folders": row.get("folders", ""),
-                        "timestamp": row.get("timestamp", ""),
-                    })
+                    records.append(
+                        {
+                            "f1": f1_val,
+                            "acc": float(row.get("acc", 0)),
+                            "pre": float(row.get("pre", 0)),
+                            "rec": float(row.get("rec", 0)),
+                            "tp": int(row.get("tp", 0)),
+                            "tn": int(row.get("tn", 0)),
+                            "fp": int(row.get("fp", 0)),
+                            "fn": int(row.get("fn", 0)),
+                            "total": total,
+                            "invalid": int(row.get("invalid", 0)),
+                            "avg_lat": float(row.get("avg_lat", 0)),
+                            "exp_name": row.get("exp_name", ""),
+                            "segmentor": row.get("segmentor", ""),
+                            "folders": row.get("folders", ""),
+                            "timestamp": row.get("timestamp", ""),
+                        }
+                    )
         except Exception as e:
             print(f"  [警告] 读取 {path} 失败: {e}")
 
@@ -283,9 +298,9 @@ def update_leaderboard(test_outputs_dir: str, top_n: int = 20) -> str:
 
 def _print_leaderboard(records: List[Dict[str, Any]]) -> None:
     """格式化打印排行榜"""
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"{'实验排行榜 (Top ' + str(len(records)) + ')':^80}")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
     header = f"{'#':>3} | {'F1':>6} | {'Acc':>6} | {'Pre':>6} | {'Rec':>6} | {'Total':>5} | {'Lat':>5} | {'实验名称'}"
     print(header)
     print("-" * 80)
@@ -295,13 +310,13 @@ def _print_leaderboard(records: List[Dict[str, Any]]) -> None:
             f"{r['pre']:>6.4f} | {r['rec']:>6.4f} | {r['total']:>5} | "
             f"{r['avg_lat']:>5.1f} | {r['exp_name']}"
         )
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
 
 
 if __name__ == "__main__":
     # 测试
     preds = ["yes", "no", "yes", "no", "yes"]
     gts = ["yes", "no", "no", "no", "yes"]
-    
+
     metrics = calculate_metrics(preds, gts)
     print_metrics_report(metrics, "测试报告")

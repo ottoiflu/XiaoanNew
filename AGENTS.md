@@ -345,7 +345,10 @@ python app.py
 
 ## 代码规范
 
-1. Python 代码遵循 PEP8 规范
+1. Python 代码遵循 PEP8 规范，使用 ruff 作为唯一的 lint + format 工具
+   - 提交前必须通过 `ruff check .` 和 `ruff format --check .`
+   - 配置集中在 pyproject.toml 的 `[tool.ruff]` 段
+   - 禁止使用 bare except，必须捕获具体异常类型
 2. 函数和类需包含中文文档字符串
 3. 重要的配置参数应集中在脚本顶部的「配置区域」中定义
 4. 模型权重路径使用绝对路径，便于跨目录调用

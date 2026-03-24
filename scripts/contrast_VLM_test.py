@@ -4,10 +4,10 @@
 支持加权评分和一票否决两种评判模式。
 """
 
+import concurrent.futures
 import os
 import sys
 import time
-import concurrent.futures
 
 from tqdm import tqdm
 
@@ -17,17 +17,17 @@ sys.path.insert(0, _PROJECT_ROOT)
 
 from config.settings import get_settings
 from scripts.prompt_manager import load_prompt
-from utils.vlm_client import create_client_pool, distribute_tasks
-from utils.vlm_parser import parse_vlm_response, normalize_label
-from utils.image_utils import encode_image_to_base64
 from utils.experiment_io import (
-    load_all_labels,
-    collect_image_tasks,
     ResultWriter,
     append_summary,
+    collect_image_tasks,
+    load_all_labels,
 )
+from utils.image_utils import encode_image_to_base64
 from utils.metrics import calculate_metrics, print_metrics_report
 from utils.scoring import ScoringEngine
+from utils.vlm_client import create_client_pool, distribute_tasks
+from utils.vlm_parser import normalize_label, parse_vlm_response
 
 # ================= 实验配置 =================
 
@@ -60,6 +60,7 @@ else:
 
 
 # ================= 核心推理 =================
+
 
 def _judge(vlm_result):
     """根据 VLM 解析结果进行合规判定"""
@@ -108,9 +109,19 @@ def process_single_image(args):
         vlm_result = parse_vlm_response(vlm_out)
 
         if not vlm_result.is_valid:
-            return [image_name, os.path.basename(folder_path), "error", gt,
-                    "fail", "fail", "fail", "fail",
-                    vlm_result.parse_error, 0, 0.0]
+            return [
+                image_name,
+                os.path.basename(folder_path),
+                "error",
+                gt,
+                "fail",
+                "fail",
+                "fail",
+                "fail",
+                vlm_result.parse_error,
+                0,
+                0.0,
+            ]
 
         pred, w_score = _judge(vlm_result)
         return [
@@ -127,16 +138,23 @@ def process_single_image(args):
             w_score,
         ]
     except Exception as e:
-        return [image_name, os.path.basename(folder_path), "error", gt,
-                "err", "err", "err", "err", str(e), 0, 0.0]
+        return [image_name, os.path.basename(folder_path), "error", gt, "err", "err", "err", "err", str(e), 0, 0.0]
 
 
 # ================= 主程序 =================
 
 CSV_HEADERS = [
-    "image_name", "folder", "result", "ground_truth",
-    "composition", "angle", "distance", "context",
-    "reason", "latency_sec", "weighted_score",
+    "image_name",
+    "folder",
+    "result",
+    "ground_truth",
+    "composition",
+    "angle",
+    "distance",
+    "context",
+    "reason",
+    "latency_sec",
+    "weighted_score",
 ]
 
 
@@ -175,11 +193,13 @@ def main():
     # 汇总
     summary_path = os.path.join(SAVE_DIR, "all_experiments_summary.csv")
     summary = metrics_result.to_dict()
-    summary.update({
-        "exp_name": CONFIG["exp_name"],
-        "folders": len(DATA_FOLDERS),
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-    })
+    summary.update(
+        {
+            "exp_name": CONFIG["exp_name"],
+            "folders": len(DATA_FOLDERS),
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+    )
     append_summary(summary_path, summary)
 
     print(f"\n>>> 实验结束！详细结果: {out_csv}")

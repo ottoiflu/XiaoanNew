@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-03-24
+
+### Added
+- pyproject.toml 新增 ruff 配置（lint + format），替代 black/isort
+- ruff 加入 dev 依赖
+
+### Changed
+- 全项目 ruff check 零违规（修复 E722 bare-except、F401 unused-import、F541 f-string、W293 空白行等 444 处问题）
+- ruff format 统一代码风格（22 文件重格式化）
+- pyproject.toml 移除 [tool.black] 和 [tool.isort] 配置
+- 所有 bare except 改为 except Exception
+
+### Removed
+- dev 依赖中移除 black、isort（ruff 完全替代）
+
 ## [1.6.0] - 2026-03-24
 
 ### Added

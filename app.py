@@ -15,24 +15,24 @@
 日期: 2026-01-20
 """
 
+import base64
+import io
 import os
 import sys
-import io
 import traceback
-import base64
-import numpy as np
 from datetime import datetime
-from flask import Flask, request, jsonify, send_file
-from werkzeug.utils import secure_filename
-from PIL import Image
+
+from flask import Flask, jsonify, request, send_file
 
 # 引入 OpenAI 客户端用于调用云端 OCR
 from openai import OpenAI
+from PIL import Image
+from werkzeug.utils import secure_filename
 
 # 导入配置模块
-import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config.settings import settings
+
 # 添加脚本目录到路径以导入推理模块
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts"))
 
@@ -68,26 +68,27 @@ YOLO_SEG_WEIGHTS = "/root/XiaoanNew/weights/best.pt"
 # 尝试加载 YOLOv8-Seg 模型
 ai_engine = None
 try:
-    from yolov8_seg_inference import YOLOv8SegInference, load_yolov8_seg
-    
+    from yolov8_seg_inference import load_yolov8_seg
+
     print(f"🚀 正在加载 YOLOv8-Seg 模型: {YOLO_SEG_WEIGHTS}")
     ai_engine = load_yolov8_seg(YOLO_SEG_WEIGHTS, device="cuda:0")
     print("✅ YOLOv8-Seg 模型加载成功!")
-    
+
 except ImportError as e:
     print(f"⚠️ 警告: 无法导入 YOLOv8-Seg 推理模块 ({e})")
     print("⚠️ 尝试回退到 MaskRCNN...")
-    
+
     # 回退到 MaskRCNN
     try:
         from mask_inference import MaskRCNNInference
+
         MASKRCNN_WEIGHTS = "/root/yk/maskrcnn_simple/MaskRCNN_Xiaoan_4class_v2.pth"
         ai_engine = MaskRCNNInference(MASKRCNN_WEIGHTS)
         print("✅ MaskRCNN 模型加载成功 (回退模式)")
     except Exception as e2:
         print(f"❌ 警告: AI 模型加载失败 ({e2})。实时检测将无法使用。")
         ai_engine = None
-        
+
 except Exception as e:
     print(f"❌ 警告: YOLOv8-Seg 模型加载失败 ({e})")
     ai_engine = None
@@ -104,7 +105,7 @@ def recognize_license_plate(image_bytes):
         return None
 
     try:
-        base64_image = base64.b64encode(image_bytes).decode('utf-8')
+        base64_image = base64.b64encode(image_bytes).decode("utf-8")
 
         response = ocr_client.chat.completions.create(
             model=OCR_MODEL,
@@ -114,18 +115,13 @@ def recognize_license_plate(image_bytes):
                     "content": [
                         {
                             "type": "text",
-                            "text": "请识别图片中的电动车车牌号码。请直接输出车牌号字符串，不要包含任何标点符号或其他解释性文字。如果图片中没有车牌，请回答'无'。"
+                            "text": "请识别图片中的电动车车牌号码。请直接输出车牌号字符串，不要包含任何标点符号或其他解释性文字。如果图片中没有车牌，请回答'无'。",
                         },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
-                            }
-                        }
-                    ]
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
+                    ],
                 }
             ],
-            max_tokens=50
+            max_tokens=50,
         )
 
         result_text = response.choices[0].message.content.strip()
@@ -144,22 +140,22 @@ def recognize_license_plate(image_bytes):
 # =========================================================
 # 功能 1: 数据采集
 # =========================================================
-@app.route('/api/collect/upload', methods=['POST'])
+@app.route("/api/collect/upload", methods=["POST"])
 def collect_upload():
     """数据采集接口"""
     try:
-        if 'file' not in request.files:
+        if "file" not in request.files:
             return jsonify({"status": "error", "message": "No file"}), 400
-            
-        file = request.files['file']
-        label = request.form.get('label', 'unknown')
-        date_str = request.form.get('date', datetime.now().strftime('%Y-%m-%d'))
-        custom_path = request.form.get('custom_path', '').strip()
-        raw_gt = request.form.get('ground_truth')
+
+        file = request.files["file"]
+        label = request.form.get("label", "unknown")
+        date_str = request.form.get("date", datetime.now().strftime("%Y-%m-%d"))
+        custom_path = request.form.get("custom_path", "").strip()
+        raw_gt = request.form.get("ground_truth")
         ground_truth = str(raw_gt).strip().lower() if raw_gt else ""
 
         if custom_path:
-            save_dir = os.path.join(UPLOAD_ROOT, custom_path.replace('../', ''))
+            save_dir = os.path.join(UPLOAD_ROOT, custom_path.replace("../", ""))
         else:
             save_dir = os.path.join(UPLOAD_ROOT, label, date_str)
         os.makedirs(save_dir, exist_ok=True)
@@ -169,12 +165,12 @@ def collect_upload():
         final_path = os.path.join(save_dir, f"{timestamp}_{filename}")
         file.save(final_path)
 
-        if ground_truth and ground_truth not in ['null', 'none', 'no data']:
+        if ground_truth and ground_truth not in ["null", "none", "no data"]:
             with open(os.path.join(save_dir, "labels.txt"), "a", encoding="utf-8") as f:
                 f.write(f"{timestamp}_{filename}, {ground_truth}\n")
 
         return jsonify({"status": "success", "path": final_path}), 200
-        
+
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -182,31 +178,31 @@ def collect_upload():
 # =========================================================
 # 功能 2: 实时掩膜分割 (流式返回 PNG)
 # =========================================================
-@app.route('/api/segmentation/detect', methods=['POST'])
+@app.route("/api/segmentation/detect", methods=["POST"])
 def detect_mask_realtime():
     """
     实时掩膜分割接口
-    
+
     输入: 图片文件 (multipart/form-data)
     输出: PNG 格式的透明掩码叠加层
-    
+
     客户端可直接将返回的 PNG 叠加在原图上显示
     """
     try:
-        if 'file' not in request.files:
+        if "file" not in request.files:
             return "No file", 400
-            
-        file = request.files['file']
-        
+
+        file = request.files["file"]
+
         if ai_engine is None:
             return "Model not loaded", 500
-            
+
         # 调用 predict_memory 返回 PNG 字节流
         img_bytes = file.read()
         png_buffer = ai_engine.predict_memory(img_bytes)
-        
-        return send_file(png_buffer, mimetype='image/png')
-        
+
+        return send_file(png_buffer, mimetype="image/png")
+
     except Exception as e:
         traceback.print_exc()
         return str(e), 500
@@ -215,11 +211,11 @@ def detect_mask_realtime():
 # =========================================================
 # 功能 2.1: 静态图片分析 (返回 JSON)
 # =========================================================
-@app.route('/api/segmentation/detect_static', methods=['POST'])
+@app.route("/api/segmentation/detect_static", methods=["POST"])
 def detect_static():
     """
     静态图片分析接口
-    
+
     输入: 图片文件 (multipart/form-data)
     输出: JSON 格式的检测结果，包含：
         - status: 状态
@@ -227,19 +223,19 @@ def detect_static():
         - mask_base64: Base64 编码的可视化掩码
     """
     try:
-        if 'file' not in request.files:
+        if "file" not in request.files:
             return jsonify({"status": "error", "message": "No file"}), 400
-            
-        file = request.files['file']
-        
+
+        file = request.files["file"]
+
         if ai_engine is None:
             return jsonify({"status": "error", "message": "Model not loaded"}), 500
 
         img_bytes = file.read()
         result = ai_engine.predict_static_json(img_bytes)
-        
+
         return jsonify({"status": "success", "data": result}), 200
-        
+
     except Exception as e:
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -248,11 +244,11 @@ def detect_static():
 # =========================================================
 # 功能 3: 停车检测 (集成云端 OCR + 实例分割)
 # =========================================================
-@app.route('/api/test/check_parking', methods=['POST'])
+@app.route("/api/test/check_parking", methods=["POST"])
 def check_parking():
     """
     停车检测接口
-    
+
     流程:
     1. 裁剪图片下方区域
     2. 云端 OCR 识别车牌
@@ -260,10 +256,10 @@ def check_parking():
     4. 综合判断停车合规性
     """
     try:
-        if 'file' not in request.files:
+        if "file" not in request.files:
             return jsonify({"code": 400, "message": "No file"}), 400
 
-        file = request.files['file']
+        file = request.files["file"]
         img_bytes = file.read()
 
         # -----------------------------------------------------
@@ -281,7 +277,7 @@ def check_parking():
                 cropped_img = pil_image.crop((0, y1, w, y2))
 
                 buf = io.BytesIO()
-                filt_format = pil_image.format if pil_image.format else 'JPEG'
+                filt_format = pil_image.format if pil_image.format else "JPEG"
                 cropped_img.save(buf, format=filt_format)
                 processed_bytes = buf.getvalue()
 
@@ -299,12 +295,14 @@ def check_parking():
 
         has_plate = plate_number is not None
         if not has_plate:
-            return jsonify({
-                "is_valid": False,
-                "message": "未检测到清晰车牌，请对准车牌重拍",
-                "confidence": 0.0,
-                "plate_number": "未识别"
-            }), 200
+            return jsonify(
+                {
+                    "is_valid": False,
+                    "message": "未检测到清晰车牌，请对准车牌重拍",
+                    "confidence": 0.0,
+                    "plate_number": "未识别",
+                }
+            ), 200
 
         print(f"[业务逻辑] 识别到车牌: {plate_number}")
 
@@ -314,20 +312,20 @@ def check_parking():
         parking_lane_found = False
         curb_found = False
         tactile_paving_found = False
-        
+
         if ai_engine:
             ai_result = ai_engine.predict_static_json(img_bytes)
-            detections = ai_result.get('detections', [])
+            detections = ai_result.get("detections", [])
 
             for det in detections:
-                label = det.get('label', '')
-                if label == 'parking lane' or label == 'parking_lane':
+                label = det.get("label", "")
+                if label == "parking lane" or label == "parking_lane":
                     parking_lane_found = True
-                elif label == 'Curb' or label == 'curb':
+                elif label == "Curb" or label == "curb":
                     curb_found = True
-                elif label == 'Tactile paving' or label == 'tactile_paving':
+                elif label == "Tactile paving" or label == "tactile_paving":
                     tactile_paving_found = True
-                    
+
             print(f"[AI检测] 停车线:{parking_lane_found}, 马路牙子:{curb_found}, 盲道:{tactile_paving_found}")
 
         # -----------------------------------------------------
@@ -365,8 +363,8 @@ def check_parking():
             "detections": {
                 "parking_lane": parking_lane_found,
                 "curb": curb_found,
-                "tactile_paving": tactile_paving_found
-            }
+                "tactile_paving": tactile_paving_found,
+            },
         }
 
         status_dir = "parking_success" if is_valid_parking else "parking_violation"
@@ -390,21 +388,23 @@ def check_parking():
 # =========================================================
 # 健康检查
 # =========================================================
-@app.route('/api/health', methods=['GET'])
+@app.route("/api/health", methods=["GET"])
 def health_check():
     """健康检查接口"""
-    return jsonify({
-        "status": "ok",
-        "model_loaded": ai_engine is not None,
-        "model_type": type(ai_engine).__name__ if ai_engine else None,
-        "ocr_available": ocr_client is not None
-    }), 200
+    return jsonify(
+        {
+            "status": "ok",
+            "model_loaded": ai_engine is not None,
+            "model_type": type(ai_engine).__name__ if ai_engine else None,
+            "ocr_available": ocr_client is not None,
+        }
+    ), 200
 
 
 # =========================================================
 # 启动服务
 # =========================================================
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("=" * 60)
     print("🚀 启动共享单车停放检测后端服务")
     print("=" * 60)
@@ -412,5 +412,5 @@ if __name__ == '__main__':
     print(f"🤖 AI引擎: {type(ai_engine).__name__ if ai_engine else 'None'}")
     print(f"📡 OCR服务: {'可用' if ocr_client else '不可用'}")
     print("=" * 60)
-    
-    app.run(host='0.0.0.0', port=5000, debug=False)
+
+    app.run(host="0.0.0.0", port=5000, debug=False)

@@ -10,26 +10,25 @@ VLM + CV 联合测试脚本
 日期: 2026-01-20
 """
 
-import os
-import sys
 import base64
+import concurrent.futures
 import csv
-import re
 import io
 import json
+import os
+import re
+import sys
 import time
-import concurrent.futures
+
 from openai import OpenAI
-from tqdm import tqdm
 from PIL import Image
-import numpy as np
+from tqdm import tqdm
 
 # 添加脚本目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # 导入 YOLOv8-Seg 推理模块
-from yolov8_seg_inference import YOLOv8SegInference, load_yolov8_seg
-
+from yolov8_seg_inference import load_yolov8_seg
 
 # ================= 配置区域 =================
 
@@ -45,7 +44,9 @@ TEST_OUTPUT_ROOT = "/root/XiaoanNew/test_outputs"
 
 # 3. 生成带时间戳的实验目录
 from datetime import datetime
+
 TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
+
 
 # 4. 创建本次实验的独立目录
 def create_experiment_dir(exp_name):
@@ -55,6 +56,7 @@ def create_experiment_dir(exp_name):
     os.makedirs(exp_dir, exist_ok=True)
     os.makedirs(vis_dir, exist_ok=True)
     return exp_dir, vis_dir
+
 
 # 占位变量，将在 main() 中初始化
 SAVE_DIR = None
@@ -66,15 +68,11 @@ CONFIG = {
     "model": "qwen/qwen3-vl-30b-a3b-instruct",
     "max_size": (768, 768),
     "quality": 80,
-    "prompt_id": "cv_enhanced_p3_copy"
+    "prompt_id": "cv_enhanced_p3_copy",
 }
 
 # 5. YOLOv8-Seg 配置
-SEGMENTOR_CONFIG = {
-    "weights": "/root/XiaoanNew/weights/best.pt",
-    "device": "cuda:0",
-    "conf_threshold": 0.6
-}
+SEGMENTOR_CONFIG = {"weights": "/root/XiaoanNew/weights/best.pt", "device": "cuda:0", "conf_threshold": 0.6}
 
 # 6. 提示词库（CV增强版本）
 PROMPT_LIB = {
@@ -229,28 +227,32 @@ PROMPT_LIB = {
 BASE_URL = "https://api.ppinfra.com/openai"
 API_KEYS = [
     "REDACTED_API_KEY_3",
-    #"REDACTED_API_KEY_2",
+    # "REDACTED_API_KEY_2",
     "REDACTED_API_KEY_1",
-    "REDACTED_API_KEY_5"
+    "REDACTED_API_KEY_5",
 ]
 MAX_WORKERS = 15
 
 
 # ================= 工具函数 =================
 
+
 def norm_yesno(x: str) -> str:
     """标准化是/否标签"""
-    if not x: return ""
+    if not x:
+        return ""
     s = str(x).strip().lower()
-    if any(k in s for k in ["yes", "true", "1", "合规"]): return "yes"
-    if any(k in s for k in ["no", "false", "0", "不合规"]): return "no"
+    if any(k in s for k in ["yes", "true", "1", "合规"]):
+        return "yes"
+    if any(k in s for k in ["no", "false", "0", "不合规"]):
+        return "no"
     return ""
 
 
 def parse_vlm_response(response_text):
     """解析 VLM 返回的 JSON 响应"""
     try:
-        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
         if not json_match:
             return "error", "JSON not found", "fail", "fail", "fail", "fail"
 
@@ -279,7 +281,7 @@ def encode_image(img_array, max_size=(768, 768), quality=80):
     pil_img = Image.fromarray(img_array)
     pil_img.thumbnail(max_size, Image.Resampling.LANCZOS)
     buf = io.BytesIO()
-    pil_img.save(buf, format='JPEG', quality=quality)
+    pil_img.save(buf, format="JPEG", quality=quality)
     return base64.b64encode(buf.getvalue()).decode()
 
 
@@ -289,10 +291,7 @@ print("=" * 60)
 print("正在加载 YOLOv8-Seg 模型...")
 print("=" * 60)
 
-segmentor = load_yolov8_seg(
-    weights_path=SEGMENTOR_CONFIG["weights"],
-    device=SEGMENTOR_CONFIG["device"]
-)
+segmentor = load_yolov8_seg(weights_path=SEGMENTOR_CONFIG["weights"], device=SEGMENTOR_CONFIG["device"])
 segmentor.conf_threshold = SEGMENTOR_CONFIG["conf_threshold"]
 
 print("YOLOv8-Seg 模型加载完成")
@@ -300,6 +299,7 @@ print("=" * 60)
 
 
 # ================= 核心处理函数 =================
+
 
 def process_single_image(args):
     """处理单张图片：YOLOv8-Seg + VLM"""
@@ -312,10 +312,10 @@ def process_single_image(args):
     try:
         # ===== 1. YOLOv8-Seg 实例分割 =====
         seg_result = segmentor.predict(image_path)
-        
-        raw_img = seg_result["image_raw"]       # 原图 (H, W, 3) RGB
-        vis_img = seg_result["image_visual"]    # 可视化图 (H, W, 3) RGB
-        objects = seg_result["objects"]         # 检测对象列表
+
+        raw_img = seg_result["image_raw"]  # 原图 (H, W, 3) RGB
+        vis_img = seg_result["image_visual"]  # 可视化图 (H, W, 3) RGB
+        objects = seg_result["objects"]  # 检测对象列表
         H, W = seg_result["image_size"]
 
         # 保存可视化结果（调试）
@@ -323,54 +323,53 @@ def process_single_image(args):
         Image.fromarray(vis_img).save(vis_path)
 
         # ===== 2. 编码两张图为 Base64 =====
-        b64_raw = encode_image(raw_img, config['max_size'], config['quality'])
-        b64_vis = encode_image(vis_img, config['max_size'], config['quality'])
+        b64_raw = encode_image(raw_img, config["max_size"], config["quality"])
+        b64_vis = encode_image(vis_img, config["max_size"], config["quality"])
 
         # ===== 3. 构造结构化检测信息 =====
-        detection_info = {
-            "image_size": [H, W],
-            "detected_objects": []
-        }
-        
+        detection_info = {"image_size": [H, W], "detected_objects": []}
+
         # 统计各类别数量
-        class_counts = {
-            "Electric bike": 0,
-            "Curb": 0,
-            "parking lane": 0,
-            "Tactile paving": 0
-        }
-        
+        class_counts = {"Electric bike": 0, "Curb": 0, "parking lane": 0, "Tactile paving": 0}
+
         for obj in objects:
-            detection_info["detected_objects"].append({
-                "id": obj["id"],
-                "label": obj["label"],
-                "confidence": obj["confidence"],
-                "bbox": obj["bbox"],
-                "area_ratio": obj["area_ratio"]
-            })
+            detection_info["detected_objects"].append(
+                {
+                    "id": obj["id"],
+                    "label": obj["label"],
+                    "confidence": obj["confidence"],
+                    "bbox": obj["bbox"],
+                    "area_ratio": obj["area_ratio"],
+                }
+            )
             if obj["label"] in class_counts:
                 class_counts[obj["label"]] += 1
-        
+
         detection_info["class_summary"] = class_counts
-        
+
         structured_info = json.dumps(detection_info, ensure_ascii=False, indent=2)
 
         # ===== 4. 构造增强 Prompt =====
-        full_prompt = PROMPT_LIB[config['prompt_id']] + \
-            "\n\n# YOLOv8-Seg Detection Results (Reference Data)\n```json\n" + \
-            structured_info + "\n```"
+        full_prompt = (
+            PROMPT_LIB[config["prompt_id"]]
+            + "\n\n# YOLOv8-Seg Detection Results (Reference Data)\n```json\n"
+            + structured_info
+            + "\n```"
+        )
 
         # ===== 5. 调用 VLM（发送原图 + 分割可视化图） =====
         res = client.chat.completions.create(
-            model=config['model'],
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": full_prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_raw}"}},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_vis}"}}
-                ]
-            }],
+            model=config["model"],
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": full_prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_raw}"}},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_vis}"}},
+                    ],
+                }
+            ],
             max_tokens=1000,
             temperature=0.1,
             top_p=0.9,
@@ -382,53 +381,78 @@ def process_single_image(args):
         return [
             image_name,
             os.path.basename(folder_path),
-            pred, gt,
-            comp, ang, dist, cont,
+            pred,
+            gt,
+            comp,
+            ang,
+            dist,
+            cont,
             len(objects),  # 检测对象数
             class_counts.get("Electric bike", 0),
             class_counts.get("Curb", 0),
             class_counts.get("parking lane", 0),
             class_counts.get("Tactile paving", 0),
             reason,
-            round(time.time() - start_t, 3)
+            round(time.time() - start_t, 3),
         ]
 
     except Exception as e:
         import traceback
+
         traceback.print_exc()
-        return [image_name, os.path.basename(folder_path), "error", gt,
-                "err", "err", "err", "err", 0, 0, 0, 0, 0, str(e), 0]
+        return [
+            image_name,
+            os.path.basename(folder_path),
+            "error",
+            gt,
+            "err",
+            "err",
+            "err",
+            "err",
+            0,
+            0,
+            0,
+            0,
+            0,
+            str(e),
+            0,
+        ]
 
 
 # ================= 评估函数 =================
+
 
 def calculate_and_report(results):
     """计算并输出评估报告"""
     tp, tn, fp, fn, inv = 0, 0, 0, 0, 0
     lats = []
-    
+
     for r in results:
         pred, gt = norm_yesno(r[2]), norm_yesno(r[3])
-        if r[2] == "error": 
+        if r[2] == "error":
             inv += 1
             continue
-        if gt == 'yes':
-            if pred == 'yes': tp += 1
-            else: fn += 1
-        elif gt == 'no':
-            if pred == 'no': tn += 1
-            else: fp += 1
-        if r[-1] > 0: 
+        if gt == "yes":
+            if pred == "yes":
+                tp += 1
+            else:
+                fn += 1
+        elif gt == "no":
+            if pred == "no":
+                tn += 1
+            else:
+                fp += 1
+        if r[-1] > 0:
             lats.append(r[-1])
-    
+
     total = tp + tn + fp + fn
     acc = (tp + tn) / total if total > 0 else 0
     pre = tp / (tp + fp) if (tp + fp) > 0 else 0
     rec = tp / (tp + fn) if (tp + fn) > 0 else 0
     f1 = 2 * pre * rec / (pre + rec) if (pre + rec) > 0 else 0
-    avg_lat = round(sum(lats)/len(lats), 3) if lats else 0
+    avg_lat = round(sum(lats) / len(lats), 3) if lats else 0
 
-    print(f"\n{'='*20} 评估报告 (YOLOv8-Seg + VLM) {'='*20}")
+    print(f"\n{'=' * 20} 评估报告 (YOLOv8-Seg + VLM) {'=' * 20}")
     print(f"总样本数 (Total Samples): {total}")
     print(f"无效/错误预测 (Invalid): {inv}")
     print("-" * 60)
@@ -444,31 +468,40 @@ def calculate_and_report(results):
     print(f"  [FN] 误判为违规 (实际合规): {fn}")
     print(f"平均单样本耗时: {avg_lat}s")
     print("=" * 60)
-    
+
     return {
-        "acc": acc, "f1": f1, "pre": pre, "rec": rec,
-        "tp": tp, "tn": tn, "fp": fp, "fn": fn,
-        "total": total, "invalid": inv, "avg_lat": avg_lat
+        "acc": acc,
+        "f1": f1,
+        "pre": pre,
+        "rec": rec,
+        "tp": tp,
+        "tn": tn,
+        "fp": fp,
+        "fn": fn,
+        "total": total,
+        "invalid": inv,
+        "avg_lat": avg_lat,
     }
 
 
 # ================= 主函数 =================
 
+
 def main():
     # 初始化实验输出目录
     global SAVE_DIR, SEG_VIS_DIR
-    SAVE_DIR, SEG_VIS_DIR = create_experiment_dir(CONFIG['exp_name'])
-    
-    print(f"\n>>> 实验启动（YOLOv8-Seg + VLM）")
+    SAVE_DIR, SEG_VIS_DIR = create_experiment_dir(CONFIG["exp_name"])
+
+    print("\n>>> 实验启动（YOLOv8-Seg + VLM）")
     print(f">>> 实验名称: {CONFIG['exp_name']}")
     print(f">>> 实验目录: {SAVE_DIR}")
     print(f">>> 数据文件夹: {DATA_FOLDERS}")
     print(f">>> 模型: {CONFIG['model']}")
-    print(f">>> 分割模型: YOLOv8l-Seg")
+    print(">>> 分割模型: YOLOv8l-Seg")
 
     # 初始化 API 客户端池
     clients = [OpenAI(base_url=BASE_URL, api_key=k) for k in API_KEYS]
-    
+
     # 加载标签
     global_labels = {}
     all_tasks = []
@@ -477,7 +510,7 @@ def main():
         if not os.path.exists(folder):
             print(f"⚠️ 文件夹不存在: {folder}")
             continue
-            
+
         l_path = os.path.join(folder, "labels.txt")
         if os.path.exists(l_path):
             with open(l_path, "r", encoding="utf-8") as f:
@@ -487,7 +520,7 @@ def main():
                         name, lab = parts[0].strip(), parts[1].strip()
                         global_labels[(name, folder)] = norm_yesno(lab)
 
-        imgs = [f for f in os.listdir(folder) if f.lower().endswith(('.jpg', '.png', '.jpeg'))]
+        imgs = [f for f in os.listdir(folder) if f.lower().endswith((".jpg", ".png", ".jpeg"))]
         for i, img in enumerate(imgs):
             all_tasks.append((img, folder, clients[i % len(clients)], global_labels, CONFIG))
 
@@ -497,36 +530,52 @@ def main():
     out_csv = os.path.join(SAVE_DIR, f"{CONFIG['exp_name']}.csv")
     results = []
 
-    with open(out_csv, "w", newline='', encoding="utf-8-sig") as f:
+    with open(out_csv, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.writer(f)
-        writer.writerow([
-            "image", "folder", "pred", "gt",
-            "composition", "angle", "distance", "context",
-            "num_detections", "electric_bike", "curb", "parking_lane", "tactile_paving",
-            "reason", "latency"
-        ])
-        
+        writer.writerow(
+            [
+                "image",
+                "folder",
+                "pred",
+                "gt",
+                "composition",
+                "angle",
+                "distance",
+                "context",
+                "num_detections",
+                "electric_bike",
+                "curb",
+                "parking_lane",
+                "tactile_paving",
+                "reason",
+                "latency",
+            ]
+        )
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
-            for row in tqdm(ex.map(process_single_image, all_tasks), 
-                          total=len(all_tasks), desc="YOLOv8-Seg + VLM 推理"):
+            for row in tqdm(
+                ex.map(process_single_image, all_tasks), total=len(all_tasks), desc="YOLOv8-Seg + VLM 推理"
+            ):
                 writer.writerow(row)
                 f.flush()
                 results.append(row)
 
     # 计算评估指标
     metrics = calculate_and_report(results)
-    
+
     # 保存汇总
     summary_path = os.path.join(SAVE_DIR, "all_experiments_summary.csv")
-    metrics.update({
-        "exp_name": CONFIG['exp_name'],
-        "segmentor": "yolov8l-seg",
-        "folders": len(DATA_FOLDERS),
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
-    })
-    
+    metrics.update(
+        {
+            "exp_name": CONFIG["exp_name"],
+            "segmentor": "yolov8l-seg",
+            "folders": len(DATA_FOLDERS),
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+    )
+
     file_exists = os.path.exists(summary_path)
-    with open(summary_path, 'a', newline='', encoding='utf-8-sig') as f:
+    with open(summary_path, "a", newline="", encoding="utf-8-sig") as f:
         dict_writer = csv.DictWriter(f, fieldnames=metrics.keys())
         if not file_exists:
             dict_writer.writeheader()

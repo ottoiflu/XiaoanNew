@@ -10,7 +10,6 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
-
 # ──────────────────────────── 标签标准化 ────────────────────────────
 
 _YES_KEYWORDS = ("yes", "true", "1", "合格", "合规", "是", "positive", "正", "[合规]")
@@ -32,9 +31,11 @@ def normalize_label(label: str) -> str:
 
 # ──────────────────────────── VLM 解析结果 ────────────────────────────
 
+
 @dataclass
 class VLMResult:
     """VLM 四维度解析结果"""
+
     composition: str = ""
     angle: str = ""
     distance: str = ""
@@ -54,13 +55,14 @@ class VLMResult:
 
 # ──────────────────────────── 解析函数 ────────────────────────────
 
+
 def parse_vlm_response(response_text: str) -> VLMResult:
     """从 VLM 文本响应中提取结构化四维度状态
 
     仅负责提取，不做合规判定（判定逻辑由 ScoringEngine 处理）。
     """
     try:
-        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
         if not json_match:
             return VLMResult(parse_error="未匹配到JSON结构")
 

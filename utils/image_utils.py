@@ -97,8 +97,6 @@ def draw_wireframe_visual(
             continue
         label = obj["label"]
         color = colors.get(label, colors.get("default", (200, 200, 200)))
-        contours, _ = cv2.findContours(
-            mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-        )
+        contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cv2.drawContours(vis, contours, -1, color, 2)
     return cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)

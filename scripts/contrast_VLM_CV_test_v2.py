@@ -4,16 +4,16 @@
 输入给 VLM 的是线框轮廓图，Python 端预计算 IoU/重叠率。
 """
 
-import os
-import sys
-import json
-import time
 import argparse
 import concurrent.futures
+import json
+import os
+import sys
+import time
 from datetime import datetime
 
-from tqdm import tqdm
 from PIL import Image
+from tqdm import tqdm
 
 # 项目根目录
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -24,22 +24,22 @@ from config.settings import get_settings
 from scripts.experiment_config import load_config, save_config
 from scripts.prompt_manager import load_prompt
 from scripts.yolov8_seg_inference import load_yolov8_seg
-from utils.vlm_client import create_client_pool, distribute_tasks
-from utils.vlm_parser import parse_vlm_response, normalize_label
+from utils.experiment_io import (
+    ResultWriter,
+    append_summary,
+    collect_image_tasks,
+    load_all_labels,
+)
 from utils.image_utils import (
-    encode_image_to_base64,
     calculate_iou_and_overlap,
     combine_masks,
     draw_wireframe_visual,
-)
-from utils.experiment_io import (
-    load_all_labels,
-    collect_image_tasks,
-    ResultWriter,
-    append_summary,
+    encode_image_to_base64,
 )
 from utils.metrics import calculate_metrics, print_metrics_report, update_leaderboard
 from utils.scoring import ScoringEngine
+from utils.vlm_client import create_client_pool, distribute_tasks
+from utils.vlm_parser import normalize_label, parse_vlm_response
 
 # ================= 默认配置 =================
 
@@ -98,10 +98,21 @@ def _judge(vlm_result):
 # ================= 核心处理 =================
 
 CSV_HEADERS = [
-    "image", "folder", "pred", "gt",
-    "composition", "angle", "distance", "context",
-    "num_detections", "electric_bike", "curb", "parking_lane", "tactile_paving",
-    "reason", "latency",
+    "image",
+    "folder",
+    "pred",
+    "gt",
+    "composition",
+    "angle",
+    "distance",
+    "context",
+    "num_detections",
+    "electric_bike",
+    "curb",
+    "parking_lane",
+    "tactile_paving",
+    "reason",
+    "latency",
 ]
 
 
@@ -134,10 +145,14 @@ def process_single_image(args):
         main_bike_mask, main_bike_conf = None, -1
 
         for obj in objects:
-            detection_info["detected_objects"].append({
-                "id": obj["id"], "label": obj["label"],
-                "confidence": obj["confidence"], "bbox": obj["bbox"],
-            })
+            detection_info["detected_objects"].append(
+                {
+                    "id": obj["id"],
+                    "label": obj["label"],
+                    "confidence": obj["confidence"],
+                    "bbox": obj["bbox"],
+                }
+            )
             if obj["label"] in class_counts:
                 class_counts[obj["label"]] += 1
             if obj["label"] == "Electric bike" and obj["confidence"] > main_bike_conf:
@@ -149,8 +164,10 @@ def process_single_image(args):
         # 几何关系计算
         geo = {
             "main_vehicle_detected": False,
-            "overlap_with_parking_lane": 0.0, "iou_with_parking_lane": 0.0,
-            "overlap_with_tactile_paving": 0.0, "status_inference": "unknown",
+            "overlap_with_parking_lane": 0.0,
+            "iou_with_parking_lane": 0.0,
+            "overlap_with_tactile_paving": 0.0,
+            "status_inference": "unknown",
         }
         if main_bike_mask is not None:
             geo["main_vehicle_detected"] = True
@@ -175,33 +192,57 @@ def process_single_image(args):
         full_prompt = (
             load_prompt(config["prompt_id"])
             + "\n\n# YOLOv8-Seg Detection & Geometry Analysis\n```json\n"
-            + structured_info + "\n```"
+            + structured_info
+            + "\n```"
         )
         res = client.chat.completions.create(
             model=config["model"],
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": full_prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_raw}"}},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_vis}"}},
-                ],
-            }],
-            max_tokens=1000, temperature=0.1, top_p=0.9,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": full_prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_raw}"}},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_vis}"}},
+                    ],
+                }
+            ],
+            max_tokens=1000,
+            temperature=0.1,
+            top_p=0.9,
         )
         vlm_out = res.choices[0].message.content
         vlm_result = parse_vlm_response(vlm_out)
 
         if not vlm_result.is_valid:
-            return [image_name, os.path.basename(folder_path), "error", gt,
-                    "fail", "fail", "fail", "fail", 0, 0, 0, 0, 0,
-                    vlm_result.parse_error, 0]
+            return [
+                image_name,
+                os.path.basename(folder_path),
+                "error",
+                gt,
+                "fail",
+                "fail",
+                "fail",
+                "fail",
+                0,
+                0,
+                0,
+                0,
+                0,
+                vlm_result.parse_error,
+                0,
+            ]
 
         pred, _ = _judge(vlm_result)
         return [
-            image_name, os.path.basename(folder_path), pred, gt,
-            vlm_result.composition, vlm_result.angle,
-            vlm_result.distance, vlm_result.context,
+            image_name,
+            os.path.basename(folder_path),
+            pred,
+            gt,
+            vlm_result.composition,
+            vlm_result.angle,
+            vlm_result.distance,
+            vlm_result.context,
             len(objects),
             class_counts.get("Electric bike", 0),
             class_counts.get("Curb", 0),
@@ -212,12 +253,29 @@ def process_single_image(args):
         ]
     except Exception as e:
         import traceback
+
         traceback.print_exc()
-        return [image_name, os.path.basename(folder_path), "error", gt,
-                "err", "err", "err", "err", 0, 0, 0, 0, 0, str(e), 0]
+        return [
+            image_name,
+            os.path.basename(folder_path),
+            "error",
+            gt,
+            "err",
+            "err",
+            "err",
+            "err",
+            0,
+            0,
+            0,
+            0,
+            0,
+            str(e),
+            0,
+        ]
 
 
 # ================= 实验运行 =================
+
 
 def run_experiment():
     """执行一次完整实验"""
@@ -248,8 +306,7 @@ def run_experiment():
 
     with ResultWriter(out_csv, CSV_HEADERS) as writer:
         with concurrent.futures.ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as ex:
-            for row in tqdm(ex.map(process_single_image, all_tasks),
-                            total=len(all_tasks), desc="推理中"):
+            for row in tqdm(ex.map(process_single_image, all_tasks), total=len(all_tasks), desc="推理中"):
                 writer.write_row(row)
                 final_results.append(row)
 
@@ -263,12 +320,14 @@ def run_experiment():
     # 汇总
     summary_path = os.path.join(exp_dir, "all_experiments_summary.csv")
     summary = metrics_result.to_dict()
-    summary.update({
-        "exp_name": config["exp_name"],
-        "segmentor": "yolov8l-seg",
-        "folders": len(DATA_FOLDERS),
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-    })
+    summary.update(
+        {
+            "exp_name": config["exp_name"],
+            "segmentor": "yolov8l-seg",
+            "folders": len(DATA_FOLDERS),
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+    )
     append_summary(summary_path, summary)
     update_leaderboard(TEST_OUTPUT_ROOT)
 
@@ -276,6 +335,7 @@ def run_experiment():
 
 
 # ================= 命令行入口 =================
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="VLM + CV 联合测试脚本")
@@ -287,19 +347,23 @@ def parse_args():
 def apply_config(config_path: str):
     """从 YAML 加载配置覆盖全局变量"""
     exp_config = load_config(config_path)
-    CONFIG.update({
-        "exp_name": exp_config.exp_name,
-        "model": exp_config.model,
-        "max_size": tuple(exp_config.max_size),
-        "quality": exp_config.quality,
-        "prompt_id": exp_config.prompt_id,
-    })
+    CONFIG.update(
+        {
+            "exp_name": exp_config.exp_name,
+            "model": exp_config.model,
+            "max_size": tuple(exp_config.max_size),
+            "quality": exp_config.quality,
+            "prompt_id": exp_config.prompt_id,
+        }
+    )
     DATA_FOLDERS[:] = exp_config.data_folders
-    SEGMENTOR_CONFIG.update({
-        "weights": exp_config.segmentor_weights,
-        "device": exp_config.segmentor_device,
-        "conf_threshold": exp_config.conf_threshold,
-    })
+    SEGMENTOR_CONFIG.update(
+        {
+            "weights": exp_config.segmentor_weights,
+            "device": exp_config.segmentor_device,
+            "conf_threshold": exp_config.conf_threshold,
+        }
+    )
     # 重新配置分割器
     segmentor.conf_threshold = SEGMENTOR_CONFIG["conf_threshold"]
     save_config(exp_config, os.path.join(TEST_OUTPUT_ROOT, "last_config.yaml"))

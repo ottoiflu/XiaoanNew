@@ -12,19 +12,21 @@
 
 from __future__ import annotations
 
-import csv
 import copy
+import csv
 import itertools
 from dataclasses import dataclass
-from utils.metrics import BinaryMetrics
 from typing import Optional
 
+from utils.metrics import BinaryMetrics
 
 # ──────────────────────────── 数据结构 ────────────────────────────
+
 
 @dataclass
 class ScoringResult:
     """单条评判结果"""
+
     is_compliant: bool
     final_score: float
     dimension_scores: dict[str, float]
@@ -35,6 +37,7 @@ class ScoringResult:
 @dataclass
 class ScoringConfig:
     """评判配置"""
+
     score_map: dict[str, dict[str, float]]
     weights: dict[str, float]
     threshold: float
@@ -77,6 +80,7 @@ class ScoringConfig:
     @classmethod
     def from_yaml(cls, path: str) -> ScoringConfig:
         import yaml
+
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
         return cls(
@@ -88,6 +92,7 @@ class ScoringConfig:
 
     def to_yaml(self, path: str) -> None:
         import yaml
+
         data = {
             "score_map": self.score_map,
             "weights": self.weights,
@@ -99,6 +104,7 @@ class ScoringConfig:
 
 
 # ──────────────────────────── 评判引擎 ────────────────────────────
+
 
 class ScoringEngine:
     """加权评判引擎"""
@@ -151,9 +157,7 @@ class ScoringEngine:
                 gated=True,
             )
 
-        final = sum(
-            self.config.weights[d] * dim_scores[d] for d in self.DIMENSIONS
-        )
+        final = sum(self.config.weights[d] * dim_scores[d] for d in self.DIMENSIONS)
         return ScoringResult(
             is_compliant=final >= self.config.threshold,
             final_score=round(final, 4),
@@ -331,9 +335,7 @@ class ScoringEngine:
             for row in rows:
                 gt = row[gt_col].strip().lower()
                 gt = "yes" if gt in ("yes", "合规") else "no"
-                result = test_engine.score(
-                    row[comp_col], row[angle_col], row[dist_col], row[ctx_col]
-                )
+                result = test_engine.score(row[comp_col], row[angle_col], row[dist_col], row[ctx_col])
                 scored.append((gt, result.final_score, result.gated))
 
             for threshold in thresholds:
@@ -400,6 +402,7 @@ class ScoringEngine:
 
 # ──────────────────────────── CLI 入口 ────────────────────────────
 
+
 def main():
     """命令行批量重评估和阈值搜索"""
     import argparse
@@ -439,7 +442,9 @@ def main():
         print(f"\n{'阈值':>6} | {'F1':>6} | {'Acc':>6} | {'Pre':>6} | {'Rec':>6} | {'FP':>4} | {'FN':>4}")
         print("-" * 52)
         for r in results:
-            print(f"{r['threshold']:6.2f} | {r['f1']:6.4f} | {r['acc']:6.4f} | {r['pre']:6.4f} | {r['rec']:6.4f} | {r['fp']:4d} | {r['fn']:4d}")
+            print(
+                f"{r['threshold']:6.2f} | {r['f1']:6.4f} | {r['acc']:6.4f} | {r['pre']:6.4f} | {r['rec']:6.4f} | {r['fp']:4d} | {r['fn']:4d}"
+            )
         best = max(results, key=lambda x: x["f1"])
         print(f"\n最优阈值: {best['threshold']:.2f} -> F1={best['f1']:.4f}, Acc={best['acc']:.4f}")
 
@@ -455,7 +460,7 @@ def main():
 
 
 def _print_metrics(metrics: dict, threshold: float) -> None:
-    print(f"\n{'='*20} 加权评判结果 (阈值={threshold}) {'='*20}")
+    print(f"\n{'=' * 20} 加权评判结果 (阈值={threshold}) {'=' * 20}")
     print(f"准确率: {metrics['acc']:.2%}  精确率: {metrics['pre']:.2%}")
     print(f"召回率: {metrics['rec']:.2%}  F1: {metrics['f1']:.4f}")
     print(f"TP={metrics['tp']}  TN={metrics['tn']}  FP={metrics['fp']}  FN={metrics['fn']}")
