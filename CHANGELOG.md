@@ -20,6 +20,8 @@
 - 修正 environment.yml 中 name 字段从 XiaoanNewtest1 改为 XiaoanNew，与实际环境一致
 - 修正 environment.yml 头部注释中过时的 uv compile 命令
 - .gitignore 添加 .yml 白名单，使 environment.yml 可被版本控制
+- docs/env_manage.md: 新增依赖工作流改为 uv add/remove --frozen 方式，取代手动编辑 pyproject.toml
+- docs/env.md 重命名为 docs/env_manage.md
 
 
 ## [2.1.2] - 2026-03-24

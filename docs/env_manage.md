@@ -50,7 +50,6 @@ dependencies:
   - uv
 ```
 
-使用conda env create -f environment.yml
 
 ### 2.2 pyproject.toml（项目核心配置）
 
@@ -110,9 +109,6 @@ url = "https://download.pytorch.org/whl/cu121"  # PyTorch CUDA 12.1 专用源
 uv pip compile pyproject.toml -o requirements.txt
 ```
 
-> 不再需要 `--extra-index-url` 参数，因为 `pyproject.toml` 的 `[tool.uv.index]` 已声明 PyTorch CUDA 源。
-
----
 
 ## 3. 环境搭建
 
@@ -149,15 +145,41 @@ source /root/XiaoanNew/env_setup.sh
 
 ### 4.1 新增依赖
 
-```bash
-# 1. 在 pyproject.toml 的 dependencies 中添加包名和版本范围
-#    例如添加 "scipy>=1.10.0"
+使用 `uv add` 直接管理依赖，无需手动编辑 pyproject.toml。
 
-# 2. 重新生成锁定文件
+```bash
+# 添加运行时依赖
+uv add --frozen <包名>
+# 示例：uv add --frozen scipy
+# 示例（指定版本范围）：uv add --frozen "scipy>=1.10.0"
+
+# 添加开发依赖（仅开发环境需要）
+uv add --frozen --dev <包名>
+# 示例：uv add --frozen --dev httpx
+
+# 移除依赖
+uv remove --frozen <包名>
+# 示例：uv remove --frozen scipy
+```
+
+`--frozen` 参数的作用：仅修改 pyproject.toml，跳过 uv 自身的 lock/sync 流程（本项目环境由 Conda 管理，不使用 uv 的虚拟环境）。
+
+添加或移除依赖后，需手动刷新锁定文件并同步环境：
+
+```bash
+# 重新生成 requirements.txt
 uv pip compile pyproject.toml -o requirements.txt
 
-# 3. 同步到环境
+# 同步到当前环境
 uv pip install -r requirements.txt
+```
+
+完整流程示例（以添加 scipy 为例）：
+
+```bash
+uv add --frozen "scipy>=1.10.0"                    # 写入 pyproject.toml
+uv pip compile pyproject.toml -o requirements.txt   # 重新锁定
+uv pip install -r requirements.txt                  # 安装到环境
 ```
 
 ### 4.2 修改源码
