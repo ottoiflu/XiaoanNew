@@ -30,8 +30,10 @@ __pycache__/
 # 配置文件
 !configs/
 !*.yaml
+!*.yml
 !prompts/
 !prompts/*.yaml
+!*.yml
 !config/
 !config/*.py
 
@@ -51,3 +53,4 @@ __pycache__/
 .vscode/
 
 data/
+pytest_cache/

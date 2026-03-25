@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+## [2.1.3] - 2026-03-25
+
+### Changed
+- 重写 docs/env.md: 基于实际部署环境审计，修正全部 7 处文档与环境不一致的问题
+  - 文件名 environment.yaml -> environment.yml
+  - 环境名 XiaoanNewtest1 -> XiaoanNew
+  - uv compile 命令移除多余的 --extra-index-url 参数
+  - 补充 env_setup.sh 激活脚本说明
+  - 补充实际环境快照（Python 3.10.20 / PyTorch 2.5.1+cu121 / CUDA 12.1）
+  - 补充 [tool.uv.index] 双索引源机制说明
+  - 修正 requirements.txt 中 -e . 的职责分离说明
+
+### Fixed
+- 修正 environment.yml 中 name 字段从 XiaoanNewtest1 改为 XiaoanNew，与实际环境一致
+- 修正 environment.yml 头部注释中过时的 uv compile 命令
+- .gitignore 添加 .yml 白名单，使 environment.yml 可被版本控制
+
+
 ## [2.1.2] - 2026-03-24
 
 ### Added

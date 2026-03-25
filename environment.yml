@@ -1,0 +1,19 @@
+# Conda 环境配置
+# 创建方式: conda env create -f environment.yml
+# 激活方式: cd /root/XiaoanNew/ & source env_setup.sh
+# uv pip compile pyproject.toml -o requirements.txt
+# 安装其余依赖: uv pip install -r requirements.txt
+# 如果你是开发者，需要运行单元测试（pytest）或代码检查（ruff），请执行：uv pip install -e ".[dev]"
+name: XiaoanNew
+channels:
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main/
+  - defaults
+
+dependencies:
+  # Python 版本
+  - python=3.10
+
+  # 包管理工具
+  - pip
+  - uv
