@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-03-27
+
+### Added
+- 新增电动车掩膜深度估计与点云可视化展示脚本 (scripts/depth_pointcloud_demo.py)
+  - 调用现有 YOLOv8-Seg 模型检测电动车并提取掩膜
+  - 集成 Depth Anything V2 单目深度估计模型
+  - RGB + Depth 转 3D 点云，支持 Open3D 交互式可视化
+  - 输出中间结果：掩膜叠加图、深度热力图、对比图、PLY 点云文件
+  - 支持 --no-gui 无界面模式（适配无显示器服务器）
+  - 支持命令行参数自定义权重路径、深度模型、置信度阈值、输出目录
+
+### Dependencies
+- 新增 open3d (点云可视化)
+- 新增 transformers (Depth Anything V2 模型加载)
+
 ## [2.1.3] - 2026-03-25
 
 ### Changed

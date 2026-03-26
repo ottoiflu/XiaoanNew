@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xiaoan-parking-detection"
-version = "2.1.2"
+version = "2.2.0"
 description = "共享单车智能停放检测系统"
 readme = "docs/PROJECT_STRUCTURE.md"
 requires-python = ">=3.10"
@@ -35,6 +35,8 @@ dependencies = [
     "tqdm>=4.60.0",
     "tenacity>=8.0.0",
     "scipy",
+    "open3d>=0.19.0",
+    "transformers>=5.3.0",
 ]
 
 [project.optional-dependencies]

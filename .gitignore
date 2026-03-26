@@ -39,6 +39,7 @@ __pycache__/
 # 项目配置
 !requirements.txt
 !pyproject.toml
+!uv.lock
 !.env.example
 
 # 环境变量 (敏感信息，不提交)
