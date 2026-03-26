@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xiaoan-parking-detection"
-version = "2.0.0"
+version = "2.1.2"
 description = "共享单车智能停放检测系统"
 readme = "docs/PROJECT_STRUCTURE.md"
 requires-python = ">=3.10"
@@ -23,8 +23,9 @@ classifiers = [
 dependencies = [
     "torch>=2.0.0",
     "torchvision>=0.15.0",
-    "ultralytics>=8.0.0",
+    "ultralytics>=8.3.0",
     "flask>=2.0.0",
+    "werkzeug>=2.0.0",
     "openai>=1.0.0",
     "pillow>=9.0.0",
     "opencv-python>=4.8.0",
@@ -32,6 +33,8 @@ dependencies = [
     "pyyaml>=6.0",
     "python-dotenv>=1.0.0",
     "tqdm>=4.60.0",
+    "tenacity>=8.0.0",
+    "scipy",
 ]
 
 [project.optional-dependencies]
@@ -43,7 +46,7 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/XiaoanNew"
+Homepage = "https://github.com/ottoiflu/XiaoanNew.git"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -79,3 +82,19 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v --tb=short"
+
+[[tool.uv.index]]
+name = "tsinghua"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true  # 将清华源设为默认主源
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true  # 只有明确指定时，才去这个源找包
+
+[tool.uv.sources]
+# 这三个包去 pytorch-cu121 找，其他的包去默认源找
+torch = { index = "pytorch-cu121" }
+torchvision = { index = "pytorch-cu121" }
+torchaudio = { index = "pytorch-cu121" }

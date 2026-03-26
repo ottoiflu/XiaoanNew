@@ -1,0 +1,11 @@
+# YOLOv8 Segmentation Dataset Config
+path: /root/XiaoanNew/MMLab/mmyolo/data/coco
+train: images/train2017
+val: images/val2017
+
+# Classes
+names:
+  0: Electric bike
+  1: Curb
+  2: parking lane
+  3: Tactile paving

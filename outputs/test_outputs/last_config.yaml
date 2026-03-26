@@ -1,7 +1,7 @@
-exp_name: my_experiment
+exp_name: v2_cv_enhanced_p6_iou_fix
 description: ''
 model: qwen/qwen3-vl-30b-a3b-instruct
-prompt_id: cv_enhanced_p4
+prompt_id: cv_enhanced_p6
 max_size:
 - 768
 - 768
@@ -14,5 +14,5 @@ data_folders:
 - /root/XiaoanNew/data/Compliance_test_data/yes_val
 output_root: /root/XiaoanNew/outputs/test_outputs
 save_visuals: true
-max_workers: 15
-timestamp: '20260325_101632'
+max_workers: 4
+timestamp: '20260324_211602'

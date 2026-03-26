@@ -12,7 +12,7 @@
 !.gitignore
 !.github/
 !.github/**
-outputs/
+
 # Python 缓存
 __pycache__/
 *.pyc
@@ -52,5 +52,5 @@ __pycache__/
 .ruff_cache/
 .vscode/
 
-data/
 pytest_cache/
+*.egg-info/
