@@ -1,56 +1,63 @@
-# 默认忽略所有
+# ==========================================
+# 1. 核心策略：默认忽略所有
+# ==========================================
 *
-
-# 保留目录结构
+!.gitignore
 !*/
 
-# 源代码
-!*.py
-!*.md
-
-# Git 配置
-!.gitignore
-!.github/
-!.github/**
-
-# Python 缓存
-__pycache__/
-*.pyc
-
-# 文档
-!docs/
-!docs/**
-
-# 模型权重
-!weights/
-!weights/*.pt
-
-
-# 配置文件
-!configs/
-!*.yaml
-!*.yml
-!prompts/
-!prompts/*.yaml
-!*.yml
-!config/
-!config/*.py
-
-# 项目配置
-!requirements.txt
+# ==========================================
+# 2. 必须提交的配置文件 (放行)
+# ==========================================
 !pyproject.toml
 !uv.lock
 !.env.example
+!README.md
+!AGENTS.md
+!CHANGELOG.md
 
-# 环境变量 (敏感信息，不提交)
+# ==========================================
+# 3. 源代码与文档 (放行)
+# ==========================================
+!*.py
+!modules/**
+!scripts/**
+!docs/**
+
+# ==========================================
+# 4. 静态资源 assets/ (精准放行)
+# ==========================================
+!assets/
+!assets/configs/
+!assets/configs/*.yaml
+!assets/prompts/
+!assets/prompts/*.yaml
+
+# 模型权重：建议只放行一个小体积的示例权重，或者只放行目录
+# 注意：若权重 > 100MB，Git 提交会失败。建议使用专门的备份方案而非 Git。
+!assets/weights/
+!assets/weights/*.pt
+
+# ==========================================
+# 5. 绝对忽略：敏感信息、本地环境、大文件
+# ==========================================
 .env
-
-# 本地环境覆盖文件 (不提交)
 .env.local
-
-.gradio/
-.ruff_cache/
-.vscode/
-
-pytest_cache/
+.venv/             # uv 自动生成的虚拟环境目录
+__pycache__/
+*.pyc
 *.egg-info/
+
+# 实验输出与数据 (绝不进入 Git)
+data/**
+outputs/**
+*.log
+
+# ==========================================
+# 6. 工具链缓存与配置 (忽略)
+# ==========================================
+.ruff_cache/
+.pytest_cache/
+.vscode/
+.idea/
+.gradio/
+.ipynb_checkpoints/
