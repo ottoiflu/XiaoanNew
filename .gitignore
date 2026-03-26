@@ -24,7 +24,6 @@ __pycache__/
 # 模型权重
 !weights/
 !weights/*.pt
-*.pt
 
 
 # 配置文件
