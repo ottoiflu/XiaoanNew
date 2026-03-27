@@ -10,6 +10,10 @@
   - create_pca_arrows: 生成三轴方向 LineSet（红/绿/蓝对应 PC1/PC2/PC3）
   - 可视化时在点云中叠加 PCA 方向轴和质心球标记
   - 控制台输出方差贡献率及主方向向量
+- 新增点云 GUI 可视化脚本 (scripts/visualize_pointcloud_gui.py)
+  - 在有 X11 显示环境的服务器上交互式查看 PLY 点云
+  - 自动对单车点云叠加 PCA 三轴方向和质心标记
+  - 支持 --ply 单文件模式和 --dir 目录批量模式
 
 ### Docs
 - 补全 docs/PROJECT_STRUCTURE.md：基于仓库扫描填入三层架构、模块职责、数据统计、测试覆盖等实际内容
