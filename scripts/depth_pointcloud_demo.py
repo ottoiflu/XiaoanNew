@@ -230,26 +230,61 @@ def merge_class_masks(objects, class_id):
     return merged.astype(bool), instances
 
 
-def repair_mask(mask, close_kernel_size=120, min_component_size=1000):
-    """修复掩膜中因模型原型分辨率不足导致的断裂和空洞
+def resolve_mask_priority(objects, priority_class_id=0, close_kernel_size=120, min_component_size=1000):
+    """按优先级解决掩膜冲突，指定类别获得像素归属最高优先权
 
-    使用形态学闭运算桥接断裂区域，移除微小连通分量，再填充内部空洞。
+    处理逻辑:
+    1. 对优先类别的掩膜做形态学闭运算，桥接因原型分辨率断裂的区域
+    2. 闭运算区域中被其他类别占据的像素，强制归还给优先类别
+    3. 从其他类别掩膜中移除被归还的像素
     """
-    u8 = mask.astype(np.uint8) * 255
-    n_before, _ = cv2.connectedComponents(u8)
-    if n_before - 1 <= 1:
-        return mask
+    priority_instances = [o for o in objects if o["category_id"] == priority_class_id]
+    if not priority_instances:
+        return
 
+    # 合并优先类别的所有实例
+    priority_mask = priority_instances[0]["mask"].copy().astype(bool)
+    for inst in priority_instances[1:]:
+        priority_mask |= inst["mask"]
+
+    # 检查是否有断裂
+    u8 = priority_mask.astype(np.uint8) * 255
+    n_components, _ = cv2.connectedComponents(u8)
+    if n_components - 1 <= 1:
+        return
+
+    # 形态学闭运算桥接断裂
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (close_kernel_size, close_kernel_size))
     closed = cv2.morphologyEx(u8, cv2.MORPH_CLOSE, kernel)
 
+    # 去除微小连通分量
     n_labels, labels = cv2.connectedComponents(closed)
     for i in range(1, n_labels):
         if (labels == i).sum() < min_component_size:
             closed[labels == i] = 0
 
-    filled = ndimage.binary_fill_holes(closed > 0)
-    return filled.astype(bool)
+    repaired = ndimage.binary_fill_holes(closed > 0)
+
+    # 新增区域 = 修复后的掩膜 - 原始掩膜
+    reclaimed = repaired & ~priority_mask
+    n_reclaimed = reclaimed.sum()
+
+    if n_reclaimed == 0:
+        return
+
+    # 更新优先类别实例的掩膜（将回收像素加到最高置信度实例上）
+    best = max(priority_instances, key=lambda o: o["confidence"])
+    best["mask"] = best["mask"] | reclaimed
+
+    # 从其他类别掩膜中移除被回收的像素
+    for o in objects:
+        if o["category_id"] != priority_class_id:
+            stolen = (o["mask"] & reclaimed).sum()
+            if stolen > 0:
+                o["mask"] = o["mask"] & ~reclaimed
+                print(f"    优先级解决: 从 {o['label']} 回收 {stolen} px 归还 电动车")
+
+    print(f"    掩膜修复: 回收 {n_reclaimed} px, 修复为 1 个连通区域")
 
 
 def visualize_pointcloud(pcd, title, out_path, no_gui, extra_geometries=None):
@@ -310,7 +345,6 @@ def process_single_class(cls_id, cls_info, objects, raw_img, depth_map, focal, o
         print(f"    未检测到 {label}，跳过")
         return
 
-    merged_mask = repair_mask(merged_mask)
     print(f"    检测到 {len(instances)} 个实例，掩膜像素: {merged_mask.sum()}")
 
     # 保存掩膜可视化
@@ -430,6 +464,9 @@ def run_demo(image_path, no_gui=False):
     print("\n" + "=" * 60)
     print("Step 4: 逐类别处理（掩膜 + 点云 + PCA）")
     print("=" * 60)
+
+    # 电动车掩膜优先级最高，先解决跨类别的像素冲突
+    resolve_mask_priority(objects, priority_class_id=0)
 
     for cls_id, cls_info in TARGET_CLASSES.items():
         process_single_class(cls_id, cls_info, objects, raw_img, depth_map, focal, out_dir, stem, no_gui)

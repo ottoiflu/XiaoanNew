@@ -5,7 +5,7 @@
 ## [Unreleased]
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 重构 depth_pointcloud_demo.py：支持电动车、马路牙子、车道线三类别分别输出掩膜图和点云
 - 深度估计模型升级为 Depth Anything V2 Large（原 Small）
@@ -45,7 +45,7 @@
 ## [2.1.3] - 2026-03-25
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 重写 docs/env.md: 基于实际部署环境审计，修正全部 7 处文档与环境不一致的问题
   - 文件名 environment.yaml -> environment.yml
@@ -79,7 +79,7 @@
   - scoring batch_evaluate 中文 ground_truth 解析
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 测试规模 315 -> **347**（+32 tests）
 - 模块覆盖率大幅提升:
@@ -103,7 +103,7 @@
   - metrics.py: 排行榜去重、零值实验过滤、自定义标题报告
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - tests/conftest.py: 新增 flask_app fixture（mock 模型 + Flask 测试客户端）
 - 测试规模从 269 增至 315（+46 tests），模块覆盖率从 61% 提升至 65%
@@ -124,7 +124,7 @@
   - 脚本集成断言
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - contrast_VLM_test.py: VLM 调用改用 chat_completion_with_retry
 - contrast_VLM_CV_test_v2.py: VLM 调用改用 chat_completion_with_retry
@@ -166,7 +166,7 @@
 - 移除 app.py 和 contrast_VLM_CV_test_v2.py 中多余的 scripts/ sys.path
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 全部模块 docstring 中的导入示例更新为 modules.* 风格
 - 重写 docs/PROJECT_STRUCTURE.md，反映 assets/data/outputs 三层目录布局
@@ -175,7 +175,7 @@
 ## [2.0.0] - 2026-03-24
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 项目级包重构: 引入 modules/ 顶层包，按领域划分子包
   - modules/config/: 配置管理 (原 config/)
@@ -199,7 +199,7 @@
 - ruff 加入 dev 依赖
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 全项目 ruff check 零违规（修复 E722 bare-except、F401 unused-import、F541 f-string、W293 空白行等 444 处问题）
 - ruff format 统一代码风格（22 文件重格式化）
@@ -234,7 +234,7 @@
   - standard_p2, standard_p3, standard_p4, standard_p5, cv_enhanced_p3_compare
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - scripts/contrast_VLM_test.py: 全面重构（557 行 -> 189 行）
   - 移除硬编码 API 密钥，改用 config.settings 环境变量管理
@@ -269,7 +269,7 @@
 - configs/scoring_default.yaml 评判配置（网格搜索最优参数）
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - scripts/contrast_VLM_test.py 集成加权评判引擎
   - parse_vlm_response 评判逻辑从硬编码一票否决改为可配置引擎
@@ -294,7 +294,7 @@
 - v2 实验配置：configs/v2_optimized_p5.yaml, configs/v2_optimized_p6.yaml
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - scripts/contrast_VLM_test.py 新增 prompt_manager 回退加载支持，可使用外部 YAML 提示词
 
@@ -323,7 +323,7 @@
 ## [1.2.0] - 2026-03-24
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 重组配置目录结构
   - 将 `scripts/configs/` 移至项目根目录 `configs/`
@@ -365,7 +365,7 @@
 
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 
 - 更新 .gitignore 支持新增文件类型
@@ -391,7 +391,7 @@
   - `test_config_system.yaml`: 配置系统测试用配置
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 重构测试脚本 (`contrast_VLM_CV_test_v2.py`)
   - 添加 `--config` 命令行参数支持配置文件驱动
@@ -407,7 +407,7 @@
 ## [0.9.1] - 2026-03-24
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 更新 AGENTS.md 文档
   - 添加 prompt_manager.py 和 prompts/ 目录说明
@@ -429,7 +429,7 @@
 - 创建 `scripts/prompts/` 目录存放提示词配置
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 重构测试脚本的提示词加载方式
   - 移除内嵌 PROMPT_LIB 字典
@@ -440,7 +440,7 @@
 ## [0.8.3] - 2026-03-24
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 将测试集从各200张缩减为各50张
   - yes_val/: 50张 (从200张中随机保留)
@@ -456,7 +456,7 @@
   - no_val/: 负样本测试集 (从421张中抽取)
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 原验证集重命名为 yes_val_all 和 no_val_all
 - 原 positive/negative 重命名为 positive_extra/negative_extra
@@ -466,7 +466,7 @@
 ## [0.8.1] - 2026-03-24
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 更新 AGENTS.md 以反映最新项目结构
 - 同步文档中的路径引用（dataset.yaml, test_outputs）
@@ -477,7 +477,7 @@
 ## [0.8.0] - 2026-03-24
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 重组实验输出结构
   - 每次测试创建独立目录 `exp_{timestamp}_{name}/`
@@ -487,7 +487,7 @@
 ## [0.7.0] - 2026-03-24
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 统一测试输出目录结构
 - 脚本可视化输出路径更新为 test_outputs/seg_visuals
@@ -495,7 +495,7 @@
 ## [0.6.0] - 2026-03-24
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 重新组织数据目录结构
 - 创建 Compliance_test_data/ 存放清洗后的测试数据
@@ -520,7 +520,7 @@
 ## [0.4.0] - 2026-03-23
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 重构项目结构，移除 MMLab 依赖
   - 模型权重移至 `weights/best.pt`
@@ -540,7 +540,7 @@
 - 新增 `docs/PROJECT_STRUCTURE.md` 项目结构详细说明文档
 
 ### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（新增 repair_mask 形态学闭运算 + 空洞填充）
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
 - 更新 .gitignore 以允许追踪 docs/ 目录
 
