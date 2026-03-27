@@ -86,7 +86,8 @@ class YOLOv8SegInference:
         print("[YOLOv8-Seg] 预热完成")
 
     def predict(
-        self, source: Union[str, np.ndarray, Image.Image, bytes], conf: float = None, iou: float = 0.7, imgsz: int = 640
+        self, source: Union[str, np.ndarray, Image.Image, bytes], conf: float = None, iou: float = 0.7, imgsz: int = 640,
+        retina_masks: bool = False,
     ) -> Dict:
         """
         执行推理，返回结构化结果
@@ -96,6 +97,7 @@ class YOLOv8SegInference:
             conf: 置信度阈值，None则使用初始化时的值
             iou: NMS IOU阈值
             imgsz: 推理图像尺寸
+            retina_masks: 是否使用原图分辨率掩膜（避免低分辨率原型导致的掩膜截断）
 
         Returns:
             {
@@ -130,7 +132,7 @@ class YOLOv8SegInference:
         H, W = img_array.shape[:2]
 
         # 执行推理
-        results = self.model.predict(img_array, conf=conf, iou=iou, imgsz=imgsz, verbose=False)
+        results = self.model.predict(img_array, conf=conf, iou=iou, imgsz=imgsz, retina_masks=retina_masks, verbose=False)
 
         result = results[0]
 

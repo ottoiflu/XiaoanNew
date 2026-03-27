@@ -31,6 +31,7 @@ import numpy as np
 import open3d as o3d
 import torch
 from PIL import Image
+from scipy import ndimage
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -229,6 +230,28 @@ def merge_class_masks(objects, class_id):
     return merged.astype(bool), instances
 
 
+def repair_mask(mask, close_kernel_size=120, min_component_size=1000):
+    """修复掩膜中因模型原型分辨率不足导致的断裂和空洞
+
+    使用形态学闭运算桥接断裂区域，移除微小连通分量，再填充内部空洞。
+    """
+    u8 = mask.astype(np.uint8) * 255
+    n_before, _ = cv2.connectedComponents(u8)
+    if n_before - 1 <= 1:
+        return mask
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (close_kernel_size, close_kernel_size))
+    closed = cv2.morphologyEx(u8, cv2.MORPH_CLOSE, kernel)
+
+    n_labels, labels = cv2.connectedComponents(closed)
+    for i in range(1, n_labels):
+        if (labels == i).sum() < min_component_size:
+            closed[labels == i] = 0
+
+    filled = ndimage.binary_fill_holes(closed > 0)
+    return filled.astype(bool)
+
+
 def visualize_pointcloud(pcd, title, out_path, no_gui, extra_geometries=None):
     """可视化或离屏渲染保存点云截图"""
     if not no_gui:
@@ -287,6 +310,7 @@ def process_single_class(cls_id, cls_info, objects, raw_img, depth_map, focal, o
         print(f"    未检测到 {label}，跳过")
         return
 
+    merged_mask = repair_mask(merged_mask)
     print(f"    检测到 {len(instances)} 个实例，掩膜像素: {merged_mask.sum()}")
 
     # 保存掩膜可视化
@@ -352,7 +376,7 @@ def run_demo(image_path, no_gui=False):
     print("=" * 60)
     t0 = time.time()
     yolo = YOLOv8SegInference(YOLO_WEIGHTS, device=device, conf_threshold=CONF_THRESHOLD)
-    result = yolo.predict(str(img_path))
+    result = yolo.predict(str(img_path), retina_masks=True)
     print(f"  推理耗时: {time.time() - t0:.2f}s")
     print(f"  检测到 {len(result['objects'])} 个目标:")
     for obj in result["objects"]:
