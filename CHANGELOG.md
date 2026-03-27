@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Changed
+- 重构 depth_pointcloud_demo.py：支持电动车、马路牙子、车道线三类别分别输出掩膜图和点云
+- 深度估计模型升级为 Depth Anything V2 Large（原 Small）
+- 每张图片的输出文件统一存放在以图片名命名的子目录中
+- 新增 render_mask_image、merge_class_masks、process_single_class 等函数
+
 ### Added
 - 为单车点云新增 PCA 方向分析功能 (scripts/depth_pointcloud_demo.py)
   - compute_pca: 对点云执行 PCA 分解，输出质心、特征值、特征向量

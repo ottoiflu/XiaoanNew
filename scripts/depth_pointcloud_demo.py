@@ -1,16 +1,24 @@
 """
-电动车掩膜深度估计与点云可视化展示脚本
+多类别掩膜深度估计与点云可视化展示脚本
 
-对同一张图片生成 5 个输出：
-1. 原图
-2. 分割图（YOLO 实例分割可视化）
-3. 深度图（Depth Anything V2 热力图）
-4. 单车点云（仅电动车掩膜区域的 3D 点云）
-5. 全场景点云（整张图片的 3D 点云）
+对同一张图片，分别提取电动车、马路牙子、车道线的掩膜和点云，并生成全场景点云。
+每张图片的输出统一存放在以图片名命名的子目录中。
+
+输出结构：
+    {output_dir}/{image_stem}/
+        01_original.jpg              -- 原图
+        02_segmentation.jpg          -- YOLO 实例分割可视化
+        03_depth.jpg                 -- Depth Anything V2 热力图
+        04_electric_bike_mask.jpg    -- 电动车掩膜
+        04_electric_bike.ply         -- 电动车点云
+        05_curb_mask.jpg             -- 马路牙子掩膜
+        05_curb.ply                  -- 马路牙子点云
+        06_parking_lane_mask.jpg     -- 车道线掩膜
+        06_parking_lane.ply          -- 车道线点云
+        07_scene.ply                 -- 全场景点云
 
 使用方式：
-    python scripts/depth_pointcloud_demo.py --image <图片路径>
-    python scripts/depth_pointcloud_demo.py --image <图片路径> --no-gui
+    uv run python scripts/depth_pointcloud_demo.py --image <图片路径> --no-gui
 """
 
 import argparse
@@ -33,13 +41,19 @@ from modules.cv.yolov8_inference import YOLOv8SegInference
 # 配置区域
 # ============================================================
 YOLO_WEIGHTS = str(PROJECT_ROOT / "assets" / "weights" / "best.pt")
-DEPTH_MODEL_NAME = "depth-anything/Depth-Anything-V2-Small-hf"
-CONF_THRESHOLD = 0.5
-ELECTRIC_BIKE_CLASS_ID = 0
+DEPTH_MODEL_NAME = "depth-anything/Depth-Anything-V2-Large-hf"
+CONF_THRESHOLD = 0.3
 OUTPUT_DIR = str(PROJECT_ROOT / "outputs" / "depth_demo")
 FOCAL_LENGTH_FACTOR = 0.8
-MAX_POINTS_BIKE = 200000
+MAX_POINTS_OBJECT = 200000
 MAX_POINTS_SCENE = 500000
+
+# 需要分别输出掩膜和点云的类别
+TARGET_CLASSES = {
+    0: {"name": "electric_bike", "label": "电动车", "index": 4, "color": (0, 255, 0)},
+    1: {"name": "curb", "label": "马路牙子", "index": 5, "color": (255, 0, 255)},
+    2: {"name": "parking_lane", "label": "车道线", "index": 6, "color": (255, 255, 0)},
+}
 
 
 def load_depth_model(model_name, device):
@@ -113,7 +127,8 @@ def clean_pointcloud(pcd, nb_neighbors=20, std_ratio=2.0):
     """统计滤波去除离群点，并估算法线"""
     if len(pcd.points) > 100:
         pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=nb_neighbors, std_ratio=std_ratio)
-    pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5, max_nn=30))
+    if len(pcd.points) > 0:
+        pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5, max_nn=30))
     return pcd
 
 
@@ -128,7 +143,6 @@ def compute_pca(pcd):
     cov = np.cov(centered, rowvar=False)
     eigenvalues, eigenvectors = np.linalg.eigh(cov)
 
-    # eigh 返回升序，反转为降序
     order = np.argsort(eigenvalues)[::-1]
     eigenvalues = eigenvalues[order]
     eigenvectors = eigenvectors[:, order]
@@ -140,13 +154,13 @@ def create_pca_arrows(centroid, eigenvectors, eigenvalues, scale_factor=1.0):
     """
     根据 PCA 结果创建 3 个方向箭头的 LineSet
 
-    第一主成分（红色）代表单车朝向，第二（绿色）和第三（蓝色）为辅助轴。
+    第一主成分（红色）代表主方向，第二（绿色）和第三（蓝色）为辅助轴。
     箭头长度按特征值的标准差比例缩放。
     """
     colors_map = [
-        [1.0, 0.0, 0.0],  # PC1: 红色 —— 主方向/朝向
-        [0.0, 1.0, 0.0],  # PC2: 绿色
-        [0.0, 0.4, 1.0],  # PC3: 蓝色
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.4, 1.0],
     ]
 
     std_devs = np.sqrt(np.maximum(eigenvalues, 0))
@@ -175,6 +189,46 @@ def create_pca_arrows(centroid, eigenvectors, eigenvalues, scale_factor=1.0):
     return lineset
 
 
+def render_mask_image(raw_img, mask, color, label):
+    """将单类别掩膜叠加到原图上，生成可视化图像"""
+    overlay = raw_img.copy()
+    mask_region = mask.astype(bool)
+    overlay[mask_region] = (
+        overlay[mask_region].astype(np.float32) * 0.5 + np.array(color, dtype=np.float32) * 0.5
+    ).astype(np.uint8)
+
+    # 绘制掩膜轮廓
+    mask_u8 = (mask.astype(np.uint8)) * 255
+    contours, _ = cv2.findContours(mask_u8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    bgr_color = (color[2], color[1], color[0])
+    cv2.drawContours(overlay, contours, -1, bgr_color, 2)
+
+    # 标注类别名
+    if contours:
+        x, y, w, h = cv2.boundingRect(contours[0])
+        cv2.putText(
+            overlay,
+            label,
+            (x, max(y - 8, 20)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            bgr_color,
+            2,
+        )
+    return overlay
+
+
+def merge_class_masks(objects, class_id):
+    """将同一类别的多个实例掩膜合并为一个"""
+    instances = [o for o in objects if o["category_id"] == class_id]
+    if not instances:
+        return None, []
+    merged = instances[0]["mask"].copy()
+    for inst in instances[1:]:
+        merged = merged | inst["mask"]
+    return merged.astype(bool), instances
+
+
 def visualize_pointcloud(pcd, title, out_path, no_gui, extra_geometries=None):
     """可视化或离屏渲染保存点云截图"""
     if not no_gui:
@@ -194,7 +248,7 @@ def visualize_pointcloud(pcd, title, out_path, no_gui, extra_geometries=None):
         vis.run()
         vis.capture_screen_image(out_path, do_render=True)
         vis.destroy_window()
-        print(f"  截图: {out_path}")
+        print(f"    截图: {out_path}")
     else:
         try:
             vis = o3d.visualization.Visualizer()
@@ -214,21 +268,80 @@ def visualize_pointcloud(pcd, title, out_path, no_gui, extra_geometries=None):
             vis.update_renderer()
             vis.capture_screen_image(out_path, do_render=True)
             vis.destroy_window()
-            print(f"  离屏截图: {out_path}")
-        except Exception as e:
-            print(f"  离屏渲染失败 ({e})，跳过截图")
+            print(f"    离屏截图: {out_path}")
+        except (RuntimeError, AttributeError, OSError) as e:
+            print(f"    离屏渲染失败 ({e})，跳过截图")
+
+
+def process_single_class(cls_id, cls_info, objects, raw_img, depth_map, focal, out_dir, stem, no_gui):
+    """处理单个类别：合并掩膜、渲染掩膜图、生成点云、PCA 分析"""
+    name = cls_info["name"]
+    label = cls_info["label"]
+    idx = cls_info["index"]
+    color = cls_info["color"]
+
+    print(f"\n  [{idx:02d}] {label} ({name})")
+
+    merged_mask, instances = merge_class_masks(objects, cls_id)
+    if merged_mask is None:
+        print(f"    未检测到 {label}，跳过")
+        return
+
+    print(f"    检测到 {len(instances)} 个实例，掩膜像素: {merged_mask.sum()}")
+
+    # 保存掩膜可视化
+    mask_img = render_mask_image(raw_img, merged_mask, color, label)
+    mask_path = str(out_dir / f"{idx:02d}_{name}_mask.jpg")
+    cv2.imwrite(mask_path, cv2.cvtColor(mask_img, cv2.COLOR_RGB2BGR))
+    print(f"    掩膜图: {mask_path}")
+
+    # 生成点云
+    t0 = time.time()
+    pcd = create_pointcloud(raw_img, depth_map, merged_mask, focal, max_points=MAX_POINTS_OBJECT)
+    pcd = clean_pointcloud(pcd)
+    n_points = len(pcd.points)
+    print(f"    点云: {n_points} 点 ({time.time() - t0:.2f}s)")
+
+    if n_points == 0:
+        print("    点云为空，跳过保存")
+        return
+
+    # 保存 PLY
+    ply_path = str(out_dir / f"{idx:02d}_{name}.ply")
+    o3d.io.write_point_cloud(ply_path, pcd)
+    print(f"    PLY: {ply_path}")
+
+    # PCA 方向分析
+    centroid, eigenvalues, eigenvectors = compute_pca(pcd)
+    pca_geoms = []
+    if centroid is not None:
+        explained = eigenvalues / eigenvalues.sum() * 100
+        pc1 = eigenvectors[:, 0]
+        print(f"    PCA: PC1={explained[0]:.1f}%, 主方向=({pc1[0]:.4f}, {pc1[1]:.4f}, {pc1[2]:.4f})")
+
+        pca_lineset = create_pca_arrows(centroid, eigenvectors, eigenvalues, scale_factor=3.0)
+        pca_geoms.append(pca_lineset)
+
+        sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.15)
+        sphere.translate(centroid)
+        sphere.paint_uniform_color([1.0, 1.0, 0.0])
+        pca_geoms.append(sphere)
+
+    # 点云可视化截图
+    shot_path = str(out_dir / f"{idx:02d}_{name}_screenshot.png")
+    visualize_pointcloud(pcd, f"{label} - {stem}", shot_path, no_gui, extra_geometries=pca_geoms)
 
 
 def run_demo(image_path, no_gui=False):
-    """执行完整的展示流程，生成 5 个输出"""
+    """执行完整的展示流程，分类别生成掩膜和点云"""
     img_path = Path(image_path)
     if not img_path.exists():
         print(f"[Error] 图片不存在: {image_path}")
         sys.exit(1)
 
-    out_dir = Path(OUTPUT_DIR)
-    out_dir.mkdir(parents=True, exist_ok=True)
     stem = img_path.stem
+    out_dir = Path(OUTPUT_DIR) / stem
+    out_dir.mkdir(parents=True, exist_ok=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # ================================================================
@@ -245,22 +358,16 @@ def run_demo(image_path, no_gui=False):
     for obj in result["objects"]:
         print(f"    - {obj['label']} (conf={obj['confidence']:.3f})")
 
-    ebikes = [o for o in result["objects"] if o["category_id"] == ELECTRIC_BIKE_CLASS_ID]
-    if not ebikes:
-        print("[Error] 未检测到电动车，无法继续")
-        sys.exit(1)
-
-    best_bike = max(ebikes, key=lambda o: o["confidence"])
-    bike_mask = best_bike["mask"]  # (H, W) bool
-    raw_img = result["image_raw"]  # (H, W, 3) RGB uint8
-    seg_img = result["image_visual"]  # (H, W, 3) RGB 分割可视化
+    raw_img = result["image_raw"]
+    seg_img = result["image_visual"]
+    objects = result["objects"]
     H, W = raw_img.shape[:2]
 
     # ================================================================
     # Step 2: Depth Anything V2 深度估计
     # ================================================================
     print("\n" + "=" * 60)
-    print("Step 2: Depth Anything V2 深度估计")
+    print("Step 2: Depth Anything V2 深度估计 (Large)")
     print("=" * 60)
     t0 = time.time()
     depth_pipe = load_depth_model(DEPTH_MODEL_NAME, device)
@@ -270,125 +377,81 @@ def run_demo(image_path, no_gui=False):
     print(f"  耗时: {time.time() - t0:.2f}s")
     print(f"  深度图尺寸: {depth_map.shape}")
 
-    # ================================================================
-    # Step 3: 生成两份点云
-    # ================================================================
-    print("\n" + "=" * 60)
-    print("Step 3: 生成点云")
-    print("=" * 60)
     focal = max(H, W) * FOCAL_LENGTH_FACTOR
 
-    # 3a: 单车点云（仅电动车区域）
-    t0 = time.time()
-    pcd_bike = create_pointcloud(raw_img, depth_map, bike_mask, focal, max_points=MAX_POINTS_BIKE)
-    pcd_bike = clean_pointcloud(pcd_bike)
-    print(f"  单车点云: {len(pcd_bike.points)} 点 ({time.time() - t0:.2f}s)")
+    # ================================================================
+    # Step 3: 保存公共输出（原图、分割图、深度图）
+    # ================================================================
+    print("\n" + "=" * 60)
+    print("Step 3: 保存公共输出")
+    print("=" * 60)
+
+    p1 = str(out_dir / "01_original.jpg")
+    cv2.imwrite(p1, cv2.cvtColor(raw_img, cv2.COLOR_RGB2BGR))
+    print(f"  [01] 原图: {p1}")
+
+    p2 = str(out_dir / "02_segmentation.jpg")
+    cv2.imwrite(p2, cv2.cvtColor(seg_img, cv2.COLOR_RGB2BGR))
+    print(f"  [02] 分割图: {p2}")
+
+    depth_vis = (depth_map * 255).astype(np.uint8)
+    depth_colored = cv2.applyColorMap(depth_vis, cv2.COLORMAP_INFERNO)
+    p3 = str(out_dir / "03_depth.jpg")
+    cv2.imwrite(p3, depth_colored)
+    print(f"  [03] 深度图: {p3}")
 
     # ================================================================
-    # Step 3.5: 单车点云 PCA 方向分析
+    # Step 4: 逐类别生成掩膜、点云、PCA
     # ================================================================
-    print("\n  --- PCA 方向分析 ---")
-    centroid, eigenvalues, eigenvectors = compute_pca(pcd_bike)
-    pca_geoms = []
-    if centroid is not None:
-        explained = eigenvalues / eigenvalues.sum() * 100
-        print(f"  质心坐标: ({centroid[0]:.3f}, {centroid[1]:.3f}, {centroid[2]:.3f})")
-        print(f"  特征值: {eigenvalues[0]:.4f}, {eigenvalues[1]:.4f}, {eigenvalues[2]:.4f}")
-        print(f"  方差贡献: PC1={explained[0]:.1f}%, PC2={explained[1]:.1f}%, PC3={explained[2]:.1f}%")
-        pc1 = eigenvectors[:, 0]
-        print(f"  主方向向量 (PC1): ({pc1[0]:.4f}, {pc1[1]:.4f}, {pc1[2]:.4f})")
+    print("\n" + "=" * 60)
+    print("Step 4: 逐类别处理（掩膜 + 点云 + PCA）")
+    print("=" * 60)
 
-        pca_lineset = create_pca_arrows(centroid, eigenvectors, eigenvalues, scale_factor=3.0)
-        pca_geoms.append(pca_lineset)
+    for cls_id, cls_info in TARGET_CLASSES.items():
+        process_single_class(cls_id, cls_info, objects, raw_img, depth_map, focal, out_dir, stem, no_gui)
 
-        # 在质心处放置一个小球标记
-        sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.15)
-        sphere.translate(centroid)
-        sphere.paint_uniform_color([1.0, 1.0, 0.0])  # 黄色质心
-        pca_geoms.append(sphere)
-    else:
-        print("  点云数量不足，跳过 PCA")
-
-    # 3b: 全场景点云（整张图片）
+    # ================================================================
+    # Step 5: 全场景点云
+    # ================================================================
+    print("\n" + "=" * 60)
+    print("Step 5: 全场景点云")
+    print("=" * 60)
     t0 = time.time()
     full_mask = np.ones((H, W), dtype=bool)
     pcd_scene = create_pointcloud(raw_img, depth_map, full_mask, focal, max_points=MAX_POINTS_SCENE)
     pcd_scene = clean_pointcloud(pcd_scene)
     print(f"  全场景点云: {len(pcd_scene.points)} 点 ({time.time() - t0:.2f}s)")
 
+    p_scene = str(out_dir / "07_scene.ply")
+    o3d.io.write_point_cloud(p_scene, pcd_scene)
+    print(f"  PLY: {p_scene}")
+
+    scene_shot = str(out_dir / "07_scene_screenshot.png")
+    visualize_pointcloud(pcd_scene, f"Scene - {stem}", scene_shot, no_gui)
+
     # ================================================================
-    # Step 4: 保存 5 个输出
+    # 输出汇总
     # ================================================================
     print("\n" + "=" * 60)
-    print("Step 4: 保存 5 个输出")
+    print(f"全部完成，输出目录: {out_dir}")
     print("=" * 60)
-
-    # [1] 原图
-    p1 = str(out_dir / f"{stem}_1_original.jpg")
-    cv2.imwrite(p1, cv2.cvtColor(raw_img, cv2.COLOR_RGB2BGR))
-    print(f"  [1/5] 原图: {p1}")
-
-    # [2] 分割图
-    p2 = str(out_dir / f"{stem}_2_segmentation.jpg")
-    cv2.imwrite(p2, cv2.cvtColor(seg_img, cv2.COLOR_RGB2BGR))
-    print(f"  [2/5] 分割图: {p2}")
-
-    # [3] 深度图（INFERNO 热力图）
-    depth_vis = (depth_map * 255).astype(np.uint8)
-    depth_colored = cv2.applyColorMap(depth_vis, cv2.COLORMAP_INFERNO)
-    p3 = str(out_dir / f"{stem}_3_depth.jpg")
-    cv2.imwrite(p3, depth_colored)
-    print(f"  [3/5] 深度图: {p3}")
-
-    # [4] 单车点云 PLY
-    p4 = str(out_dir / f"{stem}_4_bike_pointcloud.ply")
-    o3d.io.write_point_cloud(p4, pcd_bike)
-    print(f"  [4/5] 单车点云: {p4}")
-
-    # [5] 全场景点云 PLY
-    p5 = str(out_dir / f"{stem}_5_scene_pointcloud.ply")
-    o3d.io.write_point_cloud(p5, pcd_scene)
-    print(f"  [5/5] 全场景点云: {p5}")
-
-    # ================================================================
-    # Step 5: 可视化（可选）
-    # ================================================================
-    print("\n" + "=" * 60)
-    print("Step 5: 点云可视化")
-    print("=" * 60)
-    if no_gui:
-        print("  无 GUI 模式，尝试离屏渲染...")
-
-    bike_shot = str(out_dir / f"{stem}_4_bike_pointcloud_screenshot.png")
-    visualize_pointcloud(pcd_bike, f"Bike Point Cloud - {stem}", bike_shot, no_gui, extra_geometries=pca_geoms)
-
-    scene_shot = str(out_dir / f"{stem}_5_scene_pointcloud_screenshot.png")
-    visualize_pointcloud(pcd_scene, f"Scene Point Cloud - {stem}", scene_shot, no_gui)
-
-    print("\n" + "=" * 60)
-    print("展示完成，输出文件清单：")
-    print(f"  [1] 原图:       {p1}")
-    print(f"  [2] 分割图:     {p2}")
-    print(f"  [3] 深度图:     {p3}")
-    print(f"  [4] 单车点云:   {p4}")
-    print(f"  [5] 全场景点云: {p5}")
-    if centroid is not None:
-        pc1 = eigenvectors[:, 0]
-        print(f"  [PCA] 主方向: ({pc1[0]:.4f}, {pc1[1]:.4f}, {pc1[2]:.4f})")
-    print(f"  输出目录: {out_dir}")
+    for f in sorted(out_dir.iterdir()):
+        size_kb = f.stat().st_size / 1024
+        print(f"  {f.name:45s} {size_kb:8.1f} KB")
     print("=" * 60)
 
 
 def main():
+    """命令行入口"""
     global YOLO_WEIGHTS, DEPTH_MODEL_NAME, CONF_THRESHOLD, OUTPUT_DIR
 
-    parser = argparse.ArgumentParser(description="电动车掩膜深度估计与点云可视化展示")
+    parser = argparse.ArgumentParser(description="多类别掩膜深度估计与点云可视化")
     parser.add_argument("--image", type=str, required=True, help="输入图片路径")
-    parser.add_argument("--no-gui", action="store_true", help="无 GUI 模式")
+    parser.add_argument("--no-gui", action="store_true", help="无 GUI 模式（离屏渲染）")
     parser.add_argument("--weights", type=str, default=YOLO_WEIGHTS, help="YOLO 权重路径")
     parser.add_argument("--depth-model", type=str, default=DEPTH_MODEL_NAME, help="Depth Anything 模型名")
     parser.add_argument("--conf", type=float, default=CONF_THRESHOLD, help="置信度阈值")
-    parser.add_argument("--output", type=str, default=OUTPUT_DIR, help="输出目录")
+    parser.add_argument("--output", type=str, default=OUTPUT_DIR, help="输出根目录")
 
     args = parser.parse_args()
 
