@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Added
+- 为单车点云新增 PCA 方向分析功能 (scripts/depth_pointcloud_demo.py)
+  - compute_pca: 对点云执行 PCA 分解，输出质心、特征值、特征向量
+  - create_pca_arrows: 生成三轴方向 LineSet（红/绿/蓝对应 PC1/PC2/PC3）
+  - 可视化时在点云中叠加 PCA 方向轴和质心球标记
+  - 控制台输出方差贡献率及主方向向量
+
 ### Docs
 - 补全 docs/PROJECT_STRUCTURE.md：基于仓库扫描填入三层架构、模块职责、数据统计、测试覆盖等实际内容
 - 补全 docs/API.md：编写完整的 Flask 后端接口文档（5 个端点的请求/响应格式、处理流程）

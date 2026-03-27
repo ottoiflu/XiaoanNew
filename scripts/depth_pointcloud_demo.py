@@ -117,12 +117,73 @@ def clean_pointcloud(pcd, nb_neighbors=20, std_ratio=2.0):
     return pcd
 
 
-def visualize_pointcloud(pcd, title, out_path, no_gui):
+def compute_pca(pcd):
+    """对点云执行 PCA，返回质心、特征值和特征向量（按特征值降序排列）"""
+    points = np.asarray(pcd.points)
+    if len(points) < 10:
+        return None, None, None
+
+    centroid = points.mean(axis=0)
+    centered = points - centroid
+    cov = np.cov(centered, rowvar=False)
+    eigenvalues, eigenvectors = np.linalg.eigh(cov)
+
+    # eigh 返回升序，反转为降序
+    order = np.argsort(eigenvalues)[::-1]
+    eigenvalues = eigenvalues[order]
+    eigenvectors = eigenvectors[:, order]
+
+    return centroid, eigenvalues, eigenvectors
+
+
+def create_pca_arrows(centroid, eigenvectors, eigenvalues, scale_factor=1.0):
+    """
+    根据 PCA 结果创建 3 个方向箭头的 LineSet
+
+    第一主成分（红色）代表单车朝向，第二（绿色）和第三（蓝色）为辅助轴。
+    箭头长度按特征值的标准差比例缩放。
+    """
+    colors_map = [
+        [1.0, 0.0, 0.0],  # PC1: 红色 —— 主方向/朝向
+        [0.0, 1.0, 0.0],  # PC2: 绿色
+        [0.0, 0.4, 1.0],  # PC3: 蓝色
+    ]
+
+    std_devs = np.sqrt(np.maximum(eigenvalues, 0))
+    all_points = []
+    all_lines = []
+    all_colors = []
+
+    for i in range(3):
+        direction = eigenvectors[:, i]
+        length = std_devs[i] * scale_factor
+
+        tip_pos = centroid + direction * length
+        tip_neg = centroid - direction * length
+
+        base_idx = len(all_points)
+        all_points.extend([centroid.tolist(), tip_pos.tolist(), tip_neg.tolist()])
+        all_lines.append([base_idx, base_idx + 1])
+        all_lines.append([base_idx, base_idx + 2])
+        all_colors.append(colors_map[i])
+        all_colors.append(colors_map[i])
+
+    lineset = o3d.geometry.LineSet()
+    lineset.points = o3d.utility.Vector3dVector(all_points)
+    lineset.lines = o3d.utility.Vector2iVector(all_lines)
+    lineset.colors = o3d.utility.Vector3dVector(all_colors)
+    return lineset
+
+
+def visualize_pointcloud(pcd, title, out_path, no_gui, extra_geometries=None):
     """可视化或离屏渲染保存点云截图"""
     if not no_gui:
         vis = o3d.visualization.Visualizer()
         vis.create_window(window_name=title, width=1280, height=720)
         vis.add_geometry(pcd)
+        if extra_geometries:
+            for geom in extra_geometries:
+                vis.add_geometry(geom)
         opt = vis.get_render_option()
         opt.point_size = 2.0
         opt.background_color = np.array([0.05, 0.05, 0.05])
@@ -139,6 +200,9 @@ def visualize_pointcloud(pcd, title, out_path, no_gui):
             vis = o3d.visualization.Visualizer()
             vis.create_window(visible=False, width=1280, height=720)
             vis.add_geometry(pcd)
+            if extra_geometries:
+                for geom in extra_geometries:
+                    vis.add_geometry(geom)
             opt = vis.get_render_option()
             opt.point_size = 2.0
             opt.background_color = np.array([0.05, 0.05, 0.05])
@@ -220,6 +284,31 @@ def run_demo(image_path, no_gui=False):
     pcd_bike = clean_pointcloud(pcd_bike)
     print(f"  单车点云: {len(pcd_bike.points)} 点 ({time.time() - t0:.2f}s)")
 
+    # ================================================================
+    # Step 3.5: 单车点云 PCA 方向分析
+    # ================================================================
+    print("\n  --- PCA 方向分析 ---")
+    centroid, eigenvalues, eigenvectors = compute_pca(pcd_bike)
+    pca_geoms = []
+    if centroid is not None:
+        explained = eigenvalues / eigenvalues.sum() * 100
+        print(f"  质心坐标: ({centroid[0]:.3f}, {centroid[1]:.3f}, {centroid[2]:.3f})")
+        print(f"  特征值: {eigenvalues[0]:.4f}, {eigenvalues[1]:.4f}, {eigenvalues[2]:.4f}")
+        print(f"  方差贡献: PC1={explained[0]:.1f}%, PC2={explained[1]:.1f}%, PC3={explained[2]:.1f}%")
+        pc1 = eigenvectors[:, 0]
+        print(f"  主方向向量 (PC1): ({pc1[0]:.4f}, {pc1[1]:.4f}, {pc1[2]:.4f})")
+
+        pca_lineset = create_pca_arrows(centroid, eigenvectors, eigenvalues, scale_factor=3.0)
+        pca_geoms.append(pca_lineset)
+
+        # 在质心处放置一个小球标记
+        sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.15)
+        sphere.translate(centroid)
+        sphere.paint_uniform_color([1.0, 1.0, 0.0])  # 黄色质心
+        pca_geoms.append(sphere)
+    else:
+        print("  点云数量不足，跳过 PCA")
+
     # 3b: 全场景点云（整张图片）
     t0 = time.time()
     full_mask = np.ones((H, W), dtype=bool)
@@ -271,7 +360,7 @@ def run_demo(image_path, no_gui=False):
         print("  无 GUI 模式，尝试离屏渲染...")
 
     bike_shot = str(out_dir / f"{stem}_4_bike_pointcloud_screenshot.png")
-    visualize_pointcloud(pcd_bike, f"Bike Point Cloud - {stem}", bike_shot, no_gui)
+    visualize_pointcloud(pcd_bike, f"Bike Point Cloud - {stem}", bike_shot, no_gui, extra_geometries=pca_geoms)
 
     scene_shot = str(out_dir / f"{stem}_5_scene_pointcloud_screenshot.png")
     visualize_pointcloud(pcd_scene, f"Scene Point Cloud - {stem}", scene_shot, no_gui)
@@ -283,6 +372,9 @@ def run_demo(image_path, no_gui=False):
     print(f"  [3] 深度图:     {p3}")
     print(f"  [4] 单车点云:   {p4}")
     print(f"  [5] 全场景点云: {p5}")
+    if centroid is not None:
+        pc1 = eigenvectors[:, 0]
+        print(f"  [PCA] 主方向: ({pc1[0]:.4f}, {pc1[1]:.4f}, {pc1[2]:.4f})")
     print(f"  输出目录: {out_dir}")
     print("=" * 60)
 
