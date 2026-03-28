@@ -1,0 +1,23 @@
+composition_gate: true
+score_map:
+  angle:
+    '[不合规-角度]': 0.0
+    '[合规]': 1.0
+  composition:
+    '[不合规-无参照]': 0.0
+    '[不合规-构图]': 0.0
+    '[合规]': 1.0
+    '[基本合规]': 0.7
+  context:
+    '[不合规-环境]': 0.0
+    '[合规]': 1.0
+  distance:
+    '[不合规-超界]': 0.0
+    '[基本合规-压线]': 0.0
+    '[完全合规]': 1.0
+threshold: 0.35
+weights:
+  angle: 0.2
+  composition: 0.05
+  context: 0.3
+  distance: 0.45

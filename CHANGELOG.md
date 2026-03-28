@@ -4,11 +4,16 @@
 
 ## [Unreleased]
 
-## [0.5.1] - 2025-03-28
+## [0.6.0] - 2025-03-28
 
 ### Added
 - 实验可视化图表（4 张）：F1 对比、PR 分布、p4 四维指标、混淆矩阵
 - 阶段性实验报告 `outputs/contrast_experiments/EXPERIMENT_REPORT.md`
+
+### Changed
+- 加权评分网格搜索脚本 `scripts/scoring_grid_search.py`：覆盖权重、阈值、分数映射三层搜索
+- 最优评分配置 `scoring_optimized_cv_p4.yaml` / `scoring_optimized_vlm_p4.yaml`
+- 发现原始 threshold=0.60 过高，最优阈值为 0.35，cv_p4 F1 从 75.93% 提升至 77.42%
 
 ## [0.5.0] - 2026-03-29
 
