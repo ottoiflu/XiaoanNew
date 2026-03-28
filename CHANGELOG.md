@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.5.1] - 2025-03-28
+
+### Added
+- 实验可视化图表（4 张）：F1 对比、PR 分布、p4 四维指标、混淆矩阵
+- 阶段性实验报告 `outputs/contrast_experiments/EXPERIMENT_REPORT.md`
+
 ## [0.5.0] - 2026-03-29
 
 ### Added
