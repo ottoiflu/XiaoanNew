@@ -1,7 +1,6 @@
 """LabelMe 标注转 YOLO 实例分割格式，并按比例划分训练集和验证集。"""
 
 import json
-import os
 import random
 import shutil
 from pathlib import Path
@@ -134,7 +133,7 @@ names:
     with open(yaml_path, "w", encoding="utf-8") as f:
         f.write(yaml_content)
 
-    print(f"\nDone:")
+    print("\nDone:")
     print(f"  Output: {out_dir}")
     print(f"  Total labels: {total_labels}")
     print(f"  Empty label files: {empty_labels}")
