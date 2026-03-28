@@ -3,6 +3,26 @@
 本文件记录项目的所有版本变更，格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
 ## [Unreleased]
+## [0.7.0] - 2025-03-28
+
+### Added
+- 提示词迭代版本：cv_enhanced_p4_1/2/3.yaml, standard_p4_1/2.yaml
+- Phase 3 误判归因分析与三轮消融实验结果写入 EXPERIMENT_REPORT.md
+- 实验批次脚本新增 Group F/G/H (p4.1~p4.3) 共 10 个实验配置
+
+### Changed
+- 角度判定标准从"夹角 > 60 度"改为区间制 (60-120 度 + 容差 10 度)
+- 修复 VLM 对角度判据的系统性误读（FN 角度触发从 5 降至 0）
+
+### Fixed
+- p4 原版角度准则歧义导致 VLM 逻辑反转问题
+
+### Experimental Results
+- p4.1 (角度修复+IoU强否决): FP 17->5 但 FN 9->25, F1 降至 62.50%
+- p4.2 (角度修复+IoU弱化): FN 回落至 16, F1=68.69%
+- p4.3 (仅角度修复): F1=75.21%, FN 降至 6, 召回率 88% (最高)
+- 结论：IoU 规则改动弊大于利, 原版 p4+最优加权 (F1=77.42%) 仍为综合最优
+
 
 ## [0.6.0] - 2025-03-28
 

@@ -51,6 +51,7 @@ __pycache__/
 data/**
 outputs/**
 *.log
+/root/XiaoanNew/modules/train/yolo/my_dataset/***
 
 # ==========================================
 # 6. 工具链缓存与配置 (忽略)

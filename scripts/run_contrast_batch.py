@@ -49,6 +49,7 @@ MODEL = "qwen/qwen3-vl-30b-a3b-instruct"
 MAX_SIZE = (768, 768)
 QUALITY = 80
 SCORING_YAML = "assets/configs/scoring_default.yaml"
+SCORING_OPT = "assets/configs/scoring_optimized_cv_p4.yaml"
 
 DATA_FOLDERS = [
     os.path.join(_PROJECT_ROOT, "data/Compliance_test_data/no_val"),
@@ -108,6 +109,19 @@ EXPERIMENTS = [
         "scoring": SCORING_YAML,
         "strip_geometry": True,
     },
+    # --- Group F: p4.1 迭代版本 (修复角度歧义 + IoU零值处理) ---
+    {"name": "cv_p4_1_veto", "mode": "vlm_cv", "prompt_id": "cv_enhanced_p4_1", "scoring": None},
+    {"name": "cv_p4_1_opt_weighted", "mode": "vlm_cv", "prompt_id": "cv_enhanced_p4_1", "scoring": SCORING_OPT},
+    {"name": "vlm_p4_1_veto", "mode": "pure_vlm", "prompt_id": "standard_p4_1", "scoring": None},
+    {"name": "vlm_p4_1_opt_weighted", "mode": "pure_vlm", "prompt_id": "standard_p4_1", "scoring": SCORING_OPT},
+    # --- Group G: p4.2 二次迭代 (保留角度修复，弱化IoU规则) ---
+    {"name": "cv_p4_2_veto", "mode": "vlm_cv", "prompt_id": "cv_enhanced_p4_2", "scoring": None},
+    {"name": "cv_p4_2_opt_weighted", "mode": "vlm_cv", "prompt_id": "cv_enhanced_p4_2", "scoring": SCORING_OPT},
+    {"name": "vlm_p4_2_veto", "mode": "pure_vlm", "prompt_id": "standard_p4_2", "scoring": None},
+    {"name": "vlm_p4_2_opt_weighted", "mode": "pure_vlm", "prompt_id": "standard_p4_2", "scoring": SCORING_OPT},
+    # --- Group H: p4.3 消融实验 (仅角度修复，距离逻辑保持原版) ---
+    {"name": "cv_p4_3_veto", "mode": "vlm_cv", "prompt_id": "cv_enhanced_p4_3", "scoring": None},
+    {"name": "cv_p4_3_opt_weighted", "mode": "vlm_cv", "prompt_id": "cv_enhanced_p4_3", "scoring": SCORING_OPT},
 ]
 
 # ================= CSV 表头 =================
