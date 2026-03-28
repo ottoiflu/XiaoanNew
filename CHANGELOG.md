@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-29
+
+### Added
+- 批量对比实验运行器 `scripts/run_contrast_batch.py`，支持 18 组实验矩阵
+  - 纯 VLM / VLM+CV 两种工作流模式
+  - 一票否决 / 加权评分两种评判方式
+  - strip_geometry 选项：移除 CV 几何数据中的 IoU/重叠率数值
+  - 命令行参数 `--list` 列出实验、`-e` 选择实验子集
+- 新提示词文件
+  - `standard_p4.yaml`：纯 VLM 版本，接地点锚定 + 融合验证法
+  - `cv_enhanced_p7.yaml`：VLM+CV 版本，CV 数据仅辅助定位不改变判定标准
+- 实验分析报告 `outputs/contrast_experiments/ANALYSIS.md`
+
+### Changed
+- 对比实验验证 cv_enhanced_p4 + 一票否决为当前最优方案 (F1=0.76, Acc=74%)
+
+
+
 ### Changed
 - 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
 - yolov8_inference.py predict() 方法新增 retina_masks 参数
