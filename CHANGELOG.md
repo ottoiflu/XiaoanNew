@@ -3,6 +3,22 @@
 本文件记录项目的所有版本变更，格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
 ## [Unreleased]
+## [0.8.0] - 2025-03-28
+
+### Added
+- 优化版批量实验运行器 `scripts/run_contrast_batch_v2.py`，三层缓存架构：
+  - YOLO 推理预计算：所有 CV 实验共享一次分割推理
+  - VLM 调用去重：相同 (mode, prompt_id) 组条件下只调用一次 VLM
+  - 原始四维状态持久化：JSON 缓存支持离线评分重放 (`--replay`)
+  - 24 组实验矩阵，覆盖 p4~p7 全部 prompt + veto/weighted 评分
+- 训练权重自动部署脚本 `scripts/tool/deploy_new_weights.py`
+  - `--watch` 模式：监控训练完成后自动部署到 `assets/weights/best.pt`
+  - 自动备份旧权重到 `assets/weights/archive/`
+
+### Changed
+- YOLO 训练从 epoch 24 恢复，目标 500 epochs (resume=True)
+- 实验效率提升：24 个实验从 24 次 VLM 调用组降至 12 组（节省 12 组冗余调用）
+
 ## [0.7.0] - 2025-03-28
 
 ### Added
