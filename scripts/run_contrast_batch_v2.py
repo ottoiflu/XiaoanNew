@@ -95,6 +95,13 @@ EXPERIMENTS = [
     {"name": "cv_p4_2_opt_weighted", "mode": "vlm_cv", "prompt_id": "cv_enhanced_p4_2", "scoring": SCORING_OPT},
     {"name": "cv_p4_3_opt_weighted", "mode": "vlm_cv", "prompt_id": "cv_enhanced_p4_3", "scoring": SCORING_OPT},
     {"name": "cv_p7_opt_weighted", "mode": "vlm_cv", "prompt_id": "cv_enhanced_p7", "scoring": SCORING_OPT},
+    # --- 补充缺失对称实验 ---
+    {"name": "vlm_p7_veto", "mode": "pure_vlm", "prompt_id": "standard_p7", "scoring": None},
+    {"name": "vlm_p7_weighted", "mode": "pure_vlm", "prompt_id": "standard_p7", "scoring": SCORING_DEFAULT},
+    {"name": "vlm_p4_3_veto", "mode": "pure_vlm", "prompt_id": "standard_p4_3", "scoring": None},
+    {"name": "vlm_p4_3_opt_weighted", "mode": "pure_vlm", "prompt_id": "standard_p4_3", "scoring": SCORING_OPT},
+    {"name": "vlm_p4_opt_weighted", "mode": "pure_vlm", "prompt_id": "standard_p4", "scoring": SCORING_OPT},
+    {"name": "cv_p4_opt_weighted", "mode": "vlm_cv", "prompt_id": "cv_enhanced_p4", "scoring": SCORING_OPT},
 ]
 
 CSV_HEADERS = [
