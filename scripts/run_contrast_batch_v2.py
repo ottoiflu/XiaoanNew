@@ -100,8 +100,11 @@ EXPERIMENTS = [
     {"name": "vlm_p7_weighted", "mode": "pure_vlm", "prompt_id": "standard_p7", "scoring": SCORING_DEFAULT},
     {"name": "vlm_p4_3_veto", "mode": "pure_vlm", "prompt_id": "standard_p4_3", "scoring": None},
     {"name": "vlm_p4_3_opt_weighted", "mode": "pure_vlm", "prompt_id": "standard_p4_3", "scoring": SCORING_OPT},
-    {"name": "vlm_p4_opt_weighted", "mode": "pure_vlm", "prompt_id": "standard_p4", "scoring": SCORING_OPT},
-    {"name": "cv_p4_opt_weighted", "mode": "vlm_cv", "prompt_id": "cv_enhanced_p4", "scoring": SCORING_OPT},
+    # --- p8 实验组 ---
+    {"name": "vlm_p8_veto", "mode": "pure_vlm", "prompt_id": "standard_p8", "scoring": None},
+    {"name": "vlm_p8_opt_weighted", "mode": "pure_vlm", "prompt_id": "standard_p8", "scoring": SCORING_OPT},
+    {"name": "cv_p8_veto", "mode": "vlm_cv", "prompt_id": "cv_enhanced_p8", "scoring": None},
+    {"name": "cv_p8_opt_weighted", "mode": "vlm_cv", "prompt_id": "cv_enhanced_p8", "scoring": SCORING_OPT},
 ]
 
 CSV_HEADERS = [
