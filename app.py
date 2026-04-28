@@ -142,6 +142,9 @@ def _is_valid_plate(plate: str) -> bool:
     # 不含省份格式：首字符为字母（城市代码），后跟 4-6 位字母数字
     if clean[0].isalpha() and 5 <= len(clean) <= 7:
         return all(c.isalnum() for c in clean[1:])
+    # Demo 格式：城市名（2-4个汉字）+ 纯数字（4-8位），用于 Demo 预设 GT 车牌
+    if re.match(r'^[\u4e00-\u9fa5]{2,4}\d{4,8}$', clean):
+        return True
     return False
 
 
@@ -534,7 +537,7 @@ def check_parking():
                         max_tokens=1024,
                     )
                     vlm_text = vlm_resp.choices[0].message.content.strip()
-                    print(f"[VLM] 原始响应（前200字符）: {vlm_text[:200]}")
+                    print(f"[VLM] 原始响应: {vlm_text}")
 
                     vlm_result = parse_vlm_response(vlm_text)
                     if vlm_result.is_valid:
