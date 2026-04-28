@@ -125,22 +125,24 @@ _PROVINCE_CHARS = set("京津沪渝冀豫云辽黑湘皮鲁新苏浙赣鄂桂甘
 
 def _is_valid_plate(plate: str) -> bool:
     """
-    检查字符串是否符合中国车牌基本格式：
-    省份缩写(1汉字) + 城市字母(1) + 5位字母/数字 = 共 7 字符（忽略空格）。
+    检查字符串是否符合中国车牌基本格式。
+
+    接受两种格式：
+    - 完整格式：省份汉字(1) + 城市字母(1) + 5位字母/数字 = 7字符（新能源最多8位）
+    - 不含省份格式：城市字母(1) + 5位字母/数字 = 6字符（MLKit 可能漏识省份汉字）
     """
     clean = plate.strip().upper().replace(" ", "")
-    if len(clean) < 6 or len(clean) > 8:
+    if len(clean) < 5 or len(clean) > 8:
         return False
-    # 首字符应为省份缩写汉字
-    if clean[0] not in _PROVINCE_CHARS:
-        return False
-    # 第二字符应为字母（城市代码）
-    if not clean[1].isalpha():
-        return False
-    # 剩余应全部为字母或数字
-    if not all(c.isalnum() for c in clean[2:]):
-        return False
-    return True
+    # 完整格式：首字符为省份汉字
+    if clean[0] in _PROVINCE_CHARS:
+        if not clean[1].isalpha():
+            return False
+        return all(c.isalnum() for c in clean[2:])
+    # 不含省份格式：首字符为字母（城市代码），后跟 4-6 位字母数字
+    if clean[0].isalpha() and 5 <= len(clean) <= 7:
+        return all(c.isalnum() for c in clean[1:])
+    return False
 
 
 def recognize_license_plate(image_bytes):
@@ -198,17 +200,28 @@ def recognize_license_plate(image_bytes):
 
 def _plates_match(a: str, b: str) -> bool:
     """
-    判断两个车牌字符串是否一致，容忍 1 个字符的 OCR 误识差异。
+    判断两个车牌字符串是否一致。
+
+    匹配策略（任一通过即视为一致）：
+    1. 完全相同
+    2. 逐字符差异 ≤ 1（容忍单字符 OCR 误识，如 0/O、1/I）
+    3. 后 5 位数字/字母部分完全相同（省份/城市字符误识时的 fallback）
     """
     a = a.strip().upper().replace(" ", "")
     b = b.strip().upper().replace(" ", "")
     if a == b:
         return True
     if abs(len(a) - len(b)) > 2:
-        return False
-    # 逐字符差异数（简化版编辑距离）
-    diffs = sum(1 for x, y in zip(a, b) if x != y) + abs(len(a) - len(b))
-    return diffs <= 1
+        # 长度差大于2时，仍尝试后5位比对
+        pass
+    else:
+        diffs = sum(1 for x, y in zip(a, b) if x != y) + abs(len(a) - len(b))
+        if diffs <= 1:
+            return True
+    # fallback：比对后5位（省份/城市字符常被误识，但序列号部分更可靠）
+    if len(a) >= 5 and len(b) >= 5 and a[-5:] == b[-5:]:
+        return True
+    return False
 
 
 def _rule_based_judgment(parking_lane: bool, curb: bool, tactile: bool):
