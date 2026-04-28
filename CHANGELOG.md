@@ -3,6 +3,22 @@
 本文件记录项目的所有版本变更，格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
 ## [Unreleased]
+
+## [0.9.0] - 2026-04-28
+
+### Added
+- `app.py` 新增 CV+VLM 联合合规判断，替代原有的简单规则判断
+  - 新增 `vlm_client` 和 `_scoring_engine` 全局实例，启动时初始化
+  - 新增 `_rule_based_judgment()` 辅助函数，作为 VLM 不可用时的降级方案
+  - `check_parking` 步骤 B 改为调用 `ai_engine.predict()`（含 Mask 数据），并计算电动车与停车线/盲道的 IoU 和重叠率
+  - `check_parking` 新增步骤 C：生成线框轮廓可视化图，将原图 + 轮廓图 + 结构化 CV 数据注入 Qwen-VL-30B（Prompt `cv_enhanced_p5`），经 `parse_vlm_response()` 解析四维度状态，再由 `ScoringEngine` 加权评分（阈值 0.60）得出最终合规结论
+  - 响应新增 `vlm_analysis` 字段，包含四维度状态、各维评分和分析原因
+  - 响应 `detections.objects` 字段新增所有检测目标的完整列表
+- `docs/API.md` 同步更新 `check_parking` 接口文档，补充 VLM 流程描述、四维度评分表、新响应字段说明
+
+### Changed
+- `check_parking` 接口导入扩充：`json`、`calculate_iou_and_overlap`、`combine_masks`、`draw_wireframe_visual`、`encode_image_to_base64`、`ScoringEngine`、`load_prompt`、`parse_vlm_response`
+
 ## [0.8.2] - 2026-03-29
 
 ### Changed

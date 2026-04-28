@@ -154,33 +154,76 @@
 
 ## POST /api/test/check_parking
 
-停车合规综合判定接口。完整流程：裁剪下方区域 -> 云端 OCR 识别车牌 -> AI 模型检测环境要素 -> 综合判断。
+停车合规综合判定接口。完整流程：裁剪下方区域 → 车牌识别 → YOLOv8-Seg 分割 + 几何指标计算 → CV+VLM 联合合规判断。
 
 **请求格式**：`multipart/form-data`
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `file` | File | 是 | 图片文件 |
+| `plate_number` | String | 否 | 客户端 OCR 识别的车牌号，有值时跳过云端 OCR（节省约 500-1000ms） |
 
 **处理流程**：
 
-1. **预处理**：对图片下方 70% 区域进行裁剪（`center_y = h * 0.7`，高度为宽度的 1/3）。
-2. **OCR 车牌识别**：调用云端 VLM 识别车牌。未识别到车牌则直接返回不通过。
-3. **环境检测**：使用 YOLOv8-Seg 检测停车线、马路牙子、盲道。
-4. **综合判定**：根据环境要素给出合规判断，同时将图片保存为证据。
+1. **预处理**：对图片 `center_y = h * 0.7` 位置附近按宽度 1/3 裁剪，聚焦地面停车区域。
+2. **步骤 A - 车牌识别**：优先使用客户端传入的 `plate_number`，无则调用云端 Qwen-VL-8B OCR。未识别到车牌则直接返回不通过。
+3. **步骤 B - YOLOv8-Seg 分割与几何计算**：检测四类目标（电动车、停车线、马路牙子、盲道），提取主车辆 Mask，计算与停车线/盲道的 IoU 和重叠率，构造结构化 `geometry_analysis` 数据。
+4. **步骤 C - CV+VLM 联合判断**：将原始图片、线框轮廓可视化图和结构化 CV 数据注入 Qwen-VL-30B（Prompt `cv_enhanced_p5`），获取四维度状态标签，经 `ScoringEngine` 加权评分（阈值 0.60）得出合规结论。若 VLM 不可用则降级为规则判断。
+5. **步骤 D - 证据保存**：将原图保存至对应合规/违规目录。
 
-**成功响应** (200)：
+**四维度评分规则**（`ScoringEngine` 默认配置）：
+
+| 维度 | 权重 | 合规状态 | 得分 |
+|------|------|----------|------|
+| 构图 | 5% | `[合规]` / `[基本合规]` | 1.0 / 0.7 |
+| 角度 | 25% | `[合规]` | 1.0 |
+| 距离 | 40% | `[完全合规]` | 1.0 |
+| 环境 | 30% | `[合规]` | 1.0 |
+
+综合分数 ≥ 0.60 判定为合规；构图门控触发（画面质量不合格）时直接否决。
+
+**成功响应** (200) - VLM 判断：
 
 ```json
 {
     "is_valid": true,
     "plate_number": "沪A12345",
-    "confidence": 0.95,
-    "message": "规范停车 (检测到停车线)",
+    "confidence": 0.82,
+    "message": "合规停车（综合评分 0.82）",
     "detections": {
         "parking_lane": true,
         "curb": false,
-        "tactile_paving": false
+        "tactile_paving": false,
+        "objects": [
+            {"id": 0, "label": "Electric bike", "confidence": 0.97, "bbox": [120, 80, 450, 600]},
+            {"id": 1, "label": "parking lane", "confidence": 0.85, "bbox": [0, 500, 800, 700]}
+        ]
+    },
+    "vlm_analysis": {
+        "composition": "[合规]",
+        "angle": "[合规]",
+        "distance": "[完全合规]",
+        "context": "[合规]",
+        "final_score": 0.82,
+        "dimension_scores": {"composition": 1.0, "angle": 1.0, "distance": 1.0, "context": 1.0},
+        "reason": "..."
+    }
+}
+```
+
+**成功响应** (200) - 规则降级判断（VLM 不可用）：
+
+```json
+{
+    "is_valid": true,
+    "plate_number": "沪A12345",
+    "confidence": 0.7,
+    "message": "规范停车（检测到停车线）",
+    "detections": {
+        "parking_lane": true,
+        "curb": false,
+        "tactile_paving": false,
+        "objects": [...]
     }
 }
 ```
@@ -222,13 +265,18 @@
 }
 ```
 
+---
+
 ## 环境变量依赖
 
 以下环境变量需在启动前配置（通过 `.env` 文件或系统环境变量）：
 
-| 变量 | 说明 | 来源 |
-|------|------|------|
-| `VLM_API_KEYS` | VLM 服务 API 密钥 | `settings.VLM_API_KEYS` |
-| `API_BASE_URL` | VLM 服务基础 URL | `settings.API_BASE_URL` |
-| `OCR_API_KEY` | OCR 调用密钥 | `settings.OCR_API_KEY` |
-| `OCR_MODEL` | OCR 模型名称 | `settings.OCR_MODEL` |
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `VLM_API_KEYS` | VLM 合规分析 API 密钥（逗号分隔多个） | 无，必填 |
+| `API_BASE_URL` | VLM/OCR 服务基础 URL | `https://api.ppinfra.com/openai` |
+| `OCR_API_KEY` | OCR 调用密钥 | 无，必填 |
+| `VLM_MODEL` | VLM 合规分析模型 | `qwen/qwen3-vl-30b-a3b-instruct` |
+| `OCR_MODEL` | OCR 模型 | `qwen/qwen3-vl-8b-instruct` |
+| `YOLO_WEIGHTS` | YOLOv8 权重路径 | `assets/weights/best.pt` |
+| `INFERENCE_DEVICE` | 推理设备 | `cuda:0` |

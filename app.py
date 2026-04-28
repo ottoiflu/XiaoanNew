@@ -17,6 +17,7 @@
 
 import base64
 import io
+import json
 import os
 import sys
 import traceback
@@ -32,6 +33,10 @@ from werkzeug.utils import secure_filename
 # 导入配置模块
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from modules.config.settings import settings
+from modules.cv.image_utils import calculate_iou_and_overlap, combine_masks, draw_wireframe_visual, encode_image_to_base64
+from modules.experiment.scoring import ScoringEngine
+from modules.prompt.manager import load_prompt
+from modules.vlm.parser import parse_vlm_response
 from modules.vlm.retry import chat_completion_with_retry
 
 # 添加脚本目录到路径以导入推理模块
@@ -94,6 +99,22 @@ except Exception as e:
     print(f"❌ 警告: YOLOv8-Seg 模型加载失败 ({e})")
     ai_engine = None
 
+# --- VLM 合规分析配置 ---
+VLM_MODEL = settings.VLM_MODEL
+VLM_PROMPT_ID = "cv_enhanced_p5"
+
+vlm_client = None
+_scoring_engine = None
+try:
+    if settings.VLM_API_KEY:
+        vlm_client = OpenAI(base_url=settings.API_BASE_URL, api_key=settings.VLM_API_KEY)
+        _scoring_engine = ScoringEngine()
+        print(f"✅ VLM 合规分析客户端初始化成功，模型: {VLM_MODEL}")
+    else:
+        print("⚠️ VLM_API_KEYS 未配置，合规分析将回退到规则判断")
+except Exception as _e:
+    print(f"❌ VLM 合规分析客户端初始化失败: {_e}")
+
 
 # =========================================================
 # 辅助函数: 调用云端 OCR
@@ -137,6 +158,17 @@ def recognize_license_plate(image_bytes):
     except Exception as e:
         print(f"❌ OCR 调用失败: {e}")
         return None
+
+
+def _rule_based_judgment(parking_lane: bool, curb: bool, tactile: bool):
+    """基于 CV 检测结果的规则判断（VLM 不可用时的降级方案）"""
+    if tactile:
+        return False, 0.3, "停车违规：检测到盲道"
+    if parking_lane:
+        return True, 0.7, "规范停车（检测到停车线）"
+    if curb:
+        return True, 0.65, "停车位置确认（检测到马路牙子）"
+    return True, 0.5, "停车位置确认（车牌清晰）"
 
 
 # =========================================================
@@ -291,12 +323,16 @@ def check_parking():
             processed_bytes = img_bytes
 
         # -----------------------------------------------------
-        # 步骤 A: 调用云端 OCR 识别车牌
+        # 步骤 A: 车牌识别（优先使用客户端传入，跳过云端 OCR）
         # -----------------------------------------------------
-        plate_number = recognize_license_plate(processed_bytes)
+        client_plate = request.form.get("plate_number", "").strip()
+        if client_plate:
+            plate_number = client_plate
+            print(f"[优化] 使用客户端 OCR 车牌: {plate_number}（跳过云端 OCR）")
+        else:
+            plate_number = recognize_license_plate(processed_bytes)
 
-        has_plate = plate_number is not None
-        if not has_plate:
+        if not plate_number or len(plate_number) < 3:
             return jsonify(
                 {
                     "is_valid": False,
@@ -309,50 +345,149 @@ def check_parking():
         print(f"[业务逻辑] 识别到车牌: {plate_number}")
 
         # -----------------------------------------------------
-        # 步骤 B: 调用 AI 引擎获取环境掩膜
+        # 步骤 B: YOLOv8-Seg 实例分割 + 端侧几何指标计算
         # -----------------------------------------------------
         parking_lane_found = False
         curb_found = False
         tactile_paving_found = False
+        is_valid_parking = False
+        confidence = 0.0
+        message = ""
+        vlm_analysis = None
+        cv_detections = []
 
         if ai_engine:
-            ai_result = ai_engine.predict_static_json(img_bytes)
-            detections = ai_result.get("detections", [])
+            seg_result = ai_engine.predict(processed_bytes)
+            raw_img = seg_result["image_raw"]
+            objects = seg_result["objects"]
+            H, W = seg_result["image_size"]
 
-            for det in detections:
-                label = det.get("label", "")
-                if label == "parking lane" or label == "parking_lane":
+            class_counts = {"Electric bike": 0, "Curb": 0, "parking lane": 0, "Tactile paving": 0}
+            main_bike_mask, main_bike_conf = None, -1.0
+
+            for obj in objects:
+                label = obj["label"]
+                cv_detections.append({"id": obj["id"], "label": label, "confidence": obj["confidence"], "bbox": obj["bbox"]})
+                if label in class_counts:
+                    class_counts[label] += 1
+                if label == "parking lane":
                     parking_lane_found = True
-                elif label == "Curb" or label == "curb":
+                elif label == "Curb":
                     curb_found = True
-                elif label == "Tactile paving" or label == "tactile_paving":
+                elif label == "Tactile paving":
                     tactile_paving_found = True
+                if label == "Electric bike" and obj["confidence"] > main_bike_conf:
+                    main_bike_conf = obj["confidence"]
+                    main_bike_mask = obj.get("mask")
 
             print(f"[AI检测] 停车线:{parking_lane_found}, 马路牙子:{curb_found}, 盲道:{tactile_paving_found}")
 
-        # -----------------------------------------------------
-        # 步骤 C: 综合判断
-        # -----------------------------------------------------
-        is_valid_parking = False
-        message = ""
+            # 几何关系计算
+            geo = {
+                "main_vehicle_detected": main_bike_mask is not None,
+                "overlap_with_parking_lane": 0.0,
+                "iou_with_parking_lane": 0.0,
+                "overlap_with_tactile_paving": 0.0,
+                "status_inference": "unknown",
+            }
+            if main_bike_mask is not None:
+                parking_mask = combine_masks(objects, "parking lane")
+                if parking_mask is not None:
+                    iou, overlap = calculate_iou_and_overlap(main_bike_mask, parking_mask)
+                    geo["iou_with_parking_lane"] = iou
+                    geo["overlap_with_parking_lane"] = overlap
+                tactile_mask = combine_masks(objects, "Tactile paving")
+                if tactile_mask is not None:
+                    _, overlap_t = calculate_iou_and_overlap(main_bike_mask, tactile_mask)
+                    geo["overlap_with_tactile_paving"] = overlap_t
+                if geo["overlap_with_parking_lane"] > 0.8:
+                    geo["status_inference"] = "Likely Compliant (High Overlap)"
+                elif geo["overlap_with_parking_lane"] < 0.1:
+                    geo["status_inference"] = "Likely Out of Bounds"
 
-        # 如果检测到盲道，可能需要更严格的判断（这里暂时只记录）
-        if tactile_paving_found:
-            # 实际业务中可能需要判断车辆是否压在盲道上
-            print("[警告] 检测到盲道，需注意停车位置")
+            # -------------------------------------------------
+            # 步骤 C: CV+VLM 联合合规判断
+            # -------------------------------------------------
+            if vlm_client and _scoring_engine:
+                try:
+                    vis_img = draw_wireframe_visual(raw_img, objects)
+                    b64_raw = encode_image_to_base64(raw_img)
+                    b64_vis = encode_image_to_base64(vis_img)
 
-        if parking_lane_found:
-            is_valid_parking = True
-            message = "规范停车 (检测到停车线)"
-        elif curb_found:
-            is_valid_parking = True
-            message = "停车位置确认 (检测到马路牙子)"
+                    detection_info = {
+                        "image_size": [H, W],
+                        "detected_objects": cv_detections,
+                        "class_summary": class_counts,
+                        "geometry_analysis": geo,
+                    }
+                    structured_info = json.dumps(detection_info, ensure_ascii=False, indent=2)
+
+                    full_prompt = (
+                        load_prompt(VLM_PROMPT_ID)
+                        + "\n\n# YOLOv8-Seg Detection & Geometry Analysis\n```json\n"
+                        + structured_info
+                        + "\n```"
+                    )
+
+                    print(f"[VLM] 调用合规分析，模型: {VLM_MODEL}")
+                    vlm_resp = chat_completion_with_retry(
+                        vlm_client,
+                        model=VLM_MODEL,
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": full_prompt},
+                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_raw}"}},
+                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_vis}"}},
+                                ],
+                            }
+                        ],
+                        max_tokens=1024,
+                    )
+                    vlm_text = vlm_resp.choices[0].message.content.strip()
+                    print(f"[VLM] 原始响应（前200字符）: {vlm_text[:200]}")
+
+                    vlm_result = parse_vlm_response(vlm_text)
+                    if vlm_result.is_valid:
+                        score_result = _scoring_engine.score(*vlm_result.statuses)
+                        is_valid_parking = score_result.is_compliant
+                        confidence = score_result.final_score
+                        vlm_analysis = {
+                            "composition": vlm_result.composition,
+                            "angle": vlm_result.angle,
+                            "distance": vlm_result.distance,
+                            "context": vlm_result.context,
+                            "final_score": score_result.final_score,
+                            "dimension_scores": score_result.dimension_scores,
+                            "reason": str(vlm_result.reason)[:500],
+                        }
+                        if is_valid_parking:
+                            message = f"合规停车（综合评分 {confidence:.2f}）"
+                        else:
+                            dims_fail = [k for k, v in score_result.dimension_scores.items() if v < 0.5]
+                            message = f"停车违规：{', '.join(dims_fail) if dims_fail else '综合评分不足'}"
+                        print(f"[VLM] 合规判定: {'合规' if is_valid_parking else '违规'}, 评分: {confidence:.4f}")
+                    else:
+                        print(f"[VLM] 响应解析失败: {vlm_result.parse_error}，回退到规则判断")
+                        is_valid_parking, confidence, message = _rule_based_judgment(
+                            parking_lane_found, curb_found, tactile_paving_found
+                        )
+
+                except Exception as vlm_err:
+                    print(f"[VLM] 调用异常: {vlm_err}，回退到规则判断")
+                    traceback.print_exc()
+                    is_valid_parking, confidence, message = _rule_based_judgment(
+                        parking_lane_found, curb_found, tactile_paving_found
+                    )
+            else:
+                is_valid_parking, confidence, message = _rule_based_judgment(
+                    parking_lane_found, curb_found, tactile_paving_found
+                )
         else:
-            # 有车牌但无明确停车标识
             is_valid_parking = True
-            message = "停车位置确认 (车牌清晰)"
-
-        confidence = 0.95 if is_valid_parking else 0.45
+            confidence = 0.5
+            message = "停车位置确认（AI 引擎不可用，仅凭车牌判断）"
 
         # -----------------------------------------------------
         # 步骤 D: 保存证据
@@ -366,8 +501,11 @@ def check_parking():
                 "parking_lane": parking_lane_found,
                 "curb": curb_found,
                 "tactile_paving": tactile_paving_found,
+                "objects": cv_detections,
             },
         }
+        if vlm_analysis:
+            result_data["vlm_analysis"] = vlm_analysis
 
         status_dir = "parking_success" if is_valid_parking else "parking_violation"
         evidence_dir = os.path.join(UPLOAD_ROOT, "evidence", status_dir)
