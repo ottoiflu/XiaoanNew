@@ -108,8 +108,9 @@ _scoring_engine = None
 try:
     if settings.VLM_API_KEY:
         vlm_client = OpenAI(base_url=settings.API_BASE_URL, api_key=settings.VLM_API_KEY)
-        _scoring_engine = ScoringEngine()
-        print(f"✅ VLM 合规分析客户端初始化成功，模型: {VLM_MODEL}")
+        scoring_config_path = os.path.join(BASE_DIR, "assets", "configs", "scoring_optimized_cv_p4.yaml")
+        _scoring_engine = ScoringEngine.from_yaml(scoring_config_path)
+        print(f"✅ VLM 合规分析客户端初始化成功，模型: {VLM_MODEL}，评分配置: scoring_optimized_cv_p4")
     else:
         print("⚠️ VLM_API_KEYS 未配置，合规分析将回退到规则判断")
 except Exception as _e:
@@ -158,6 +159,21 @@ def recognize_license_plate(image_bytes):
     except Exception as e:
         print(f"❌ OCR 调用失败: {e}")
         return None
+
+
+def _plates_match(a: str, b: str) -> bool:
+    """
+    判断两个车牌字符串是否一致，容忍 1 个字符的 OCR 误识差异。
+    """
+    a = a.strip().upper().replace(" ", "")
+    b = b.strip().upper().replace(" ", "")
+    if a == b:
+        return True
+    if abs(len(a) - len(b)) > 2:
+        return False
+    # 逐字符差异数（简化版编辑距离）
+    diffs = sum(1 for x, y in zip(a, b) if x != y) + abs(len(a) - len(b))
+    return diffs <= 1
 
 
 def _rule_based_judgment(parking_lane: bool, curb: bool, tactile: bool):
@@ -323,14 +339,34 @@ def check_parking():
             processed_bytes = img_bytes
 
         # -----------------------------------------------------
-        # 步骤 A: 车牌识别（优先使用客户端传入，跳过云端 OCR）
+        # 步骤 A: 车牌识别 + 一致性交叉验证
+        # 对原始全图跑服务端 OCR，与客户端传入车牌对比，防止用户用别辆车的图像过关。
         # -----------------------------------------------------
         client_plate = request.form.get("plate_number", "").strip()
-        if client_plate:
+        server_plate = recognize_license_plate(img_bytes)  # 对原图（全图）跑 OCR
+
+        if client_plate and server_plate:
+            if not _plates_match(client_plate, server_plate):
+                print(f"[安全] 车牌不符: 客户端={client_plate}, 服务端 OCR={server_plate}")
+                return jsonify(
+                    {
+                        "is_valid": False,
+                        "message": "图像中的车牌与扫描车牌不符，请确认对准自己的车辆后重试",
+                        "confidence": 0.0,
+                        "plate_number": server_plate,
+                    }
+                ), 200
             plate_number = client_plate
-            print(f"[优化] 使用客户端 OCR 车牌: {plate_number}（跳过云端 OCR）")
+            print(f"[验证] 车牌一致: {plate_number}")
+        elif client_plate:
+            # 服务端未识别到车牌（可能角度遇挡），信任客户端并记录警告
+            plate_number = client_plate
+            print(f"[警告] 服务端未识别到车牌，使用客户端车牌: {plate_number}")
+        elif server_plate:
+            plate_number = server_plate
+            print(f"[OCR] 使用服务端识别车牌: {plate_number}")
         else:
-            plate_number = recognize_license_plate(processed_bytes)
+            plate_number = None
 
         if not plate_number or len(plate_number) < 3:
             return jsonify(
@@ -342,7 +378,7 @@ def check_parking():
                 }
             ), 200
 
-        print(f"[业务逻辑] 识别到车牌: {plate_number}")
+        print(f"[业务逻辑] 确认车牌: {plate_number}")
 
         # -----------------------------------------------------
         # 步骤 B: YOLOv8-Seg 实例分割 + 端侧几何指标计算
