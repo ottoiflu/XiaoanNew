@@ -120,6 +120,29 @@ except Exception as _e:
 # =========================================================
 # 辅助函数: 调用云端 OCR
 # =========================================================
+_PROVINCE_CHARS = set("京津沪渝冀豫云辽黑湘皮鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤川青藏琼宁")
+
+
+def _is_valid_plate(plate: str) -> bool:
+    """
+    检查字符串是否符合中国车牌基本格式：
+    省份缩写(1汉字) + 城市字母(1) + 5位字母/数字 = 共 7 字符（忽略空格）。
+    """
+    clean = plate.strip().upper().replace(" ", "")
+    if len(clean) < 6 or len(clean) > 8:
+        return False
+    # 首字符应为省份缩写汉字
+    if clean[0] not in _PROVINCE_CHARS:
+        return False
+    # 第二字符应为字母（城市代码）
+    if not clean[1].isalpha():
+        return False
+    # 剩余应全部为字母或数字
+    if not all(c.isalnum() for c in clean[2:]):
+        return False
+    return True
+
+
 def recognize_license_plate(image_bytes):
     """
     将图片字节流转为 Base64，调用云端大模型识别车牌
@@ -139,13 +162,20 @@ def recognize_license_plate(image_bytes):
                     "content": [
                         {
                             "type": "text",
-                            "text": "请识别图片中的电动车车牌号码。请直接输出车牌号字符串，不要包含任何标点符号或其他解释性文字。如果图片中没有车牌，请回答'无'。",
+                            "text": (
+                                "请识别图片中的电动车或机动车号牌。"
+                                "中国号牌格式为：1个汉字省份缩写 + 1个字母城市代码 + 5位字母/数字，共 7 个字符，"
+                                "例如「粤B12345」。"
+                                "请直接输出车牌号字符串（省份汉字+6位字符），"
+                                "不要包含任何标点、空格或解释性文字。"
+                                "如果图片中没有清晰可见的号牌，请回答「无」。"
+                            ),
                         },
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
                     ],
                 }
             ],
-            max_tokens=50,
+            max_tokens=30,
         )
 
         result_text = response.choices[0].message.content.strip()
@@ -154,7 +184,12 @@ def recognize_license_plate(image_bytes):
         if "无" in result_text or len(result_text) < 3:
             return None
 
-        return result_text
+        # 格式校验：过滤掉明显不是车牌的识别结果
+        if not _is_valid_plate(result_text):
+            print(f"[OCR] 识别结果不符合车牌格式，忽略: {result_text}")
+            return None
+
+        return result_text.strip().upper().replace(" ", "")
 
     except Exception as e:
         print(f"❌ OCR 调用失败: {e}")
@@ -342,7 +377,11 @@ def check_parking():
         # 步骤 A: 车牌识别 + 一致性交叉验证
         # 对原始全图跑服务端 OCR，与客户端传入车牌对比，防止用户用别辆车的图像过关。
         # -----------------------------------------------------
-        client_plate = request.form.get("plate_number", "").strip()
+        raw_client_plate = request.form.get("plate_number", "").strip().upper().replace(" ", "")
+        # 过滤格式明显不合法的客户端车牌（如纯数字、空字符串等）
+        client_plate = raw_client_plate if _is_valid_plate(raw_client_plate) else ""
+        if raw_client_plate and not client_plate:
+            print(f"[过滤] 客户端车牌格式非法，忽略: {raw_client_plate}")
         server_plate = recognize_license_plate(img_bytes)  # 对原图（全图）跑 OCR
 
         if client_plate and server_plate:
