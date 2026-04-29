@@ -68,6 +68,7 @@ content: |
   1. status 字段必须从上述给定选项中精确选择，禁止自创。
   2. status 字段内禁止出现解释性文字。
   3. step_by_step_analysis 的描述必须支撑 scores 结论。
+  4. suggestion 字段必须是中文，简洁具体（≤30字），告知用户如何改善或肯定合规停放。
 
   # Output Format (JSON)
   ```json
@@ -83,7 +84,8 @@ content: |
       "composition_status": "[合规] / [基本合规] / [不合规-构图] / [不合规-无参照]",
       "angle_status": "[合规] / [不合规-角度]",
       "distance_status": "[完全合规] / [基本合规-压线] / [不合规-超界]",
-      "context_status": "[合规] / [不合规-环境]"
+      "context_status": "[合规] / [不合规-环境]",
+      "suggestion": "针对本次停放结果的一句话具体建议：若存在违规则指出应如何调整；若合规则给出正面肯定。不超过30字。"
     }
   }
   ```
