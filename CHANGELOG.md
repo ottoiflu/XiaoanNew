@@ -4,6 +4,28 @@
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-05-31
+
+### Added
+- `app.py` 新增 `ThreadPoolExecutor` 并行化架构：OCR（远程 I/O）与 YOLO（本地 GPU）并行提交执行，消除两者间的串行等待
+  - 新增 `_run_yolo()` 封装函数，供线程池调度
+  - OCR 设 15s 超时保护，避免远程 API 阻塞主流程
+- `app.py` 新增进程级图片哈希结果缓存（`_RESULT_CACHE`）
+  - key = `md5(image_bytes) + plate_number`，TTL=300s
+  - 线程安全（`threading.Lock`），惰性清理过期条目
+  - 覆盖正常结果和安全拦截结果两种场景
+- 新增 `import hashlib, re, threading, time, concurrent.futures`
+
+### Changed
+- `check_parking` 接口流程重构：串行 A->B->C 改为 A+B 并行 -> C
+  - 步骤 A（OCR）和步骤 B（YOLO）通过 `_executor.submit()` 并行提交
+  - YOLO 结果先返回（50-200ms），OCR 结果后到达（1-5s），总延迟降低约 50-200ms
+- `scoring_optimized_cv_p4.yaml` 评分粒度细化
+  - `angle` 新增 `[基本合规-角度]`: 0.5
+  - `context` 新增 `[基本合规-环境]`: 0.5
+  - `distance` 的 `[基本合规-压线]` 从 0.0 调整为 0.5
+- `check_parking` 所有返回路径（含安全拦截）均写入缓存
+
 ## [0.9.0] - 2026-04-28
 
 ### Added

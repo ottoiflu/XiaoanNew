@@ -16,11 +16,16 @@
 """
 
 import base64
+import hashlib
 import io
 import json
 import os
+import re
 import sys
+import threading
+import time
 import traceback
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 from flask import Flask, jsonify, request, send_file
@@ -115,6 +120,37 @@ try:
         print("⚠️ VLM_API_KEYS 未配置，合规分析将回退到规则判断")
 except Exception as _e:
     print(f"❌ VLM 合规分析客户端初始化失败: {_e}")
+
+
+# --- 结果缓存（相同图片短时间内重复请求直接返回） ---
+_RESULT_CACHE: dict = {}
+_CACHE_LOCK = threading.Lock()
+_CACHE_TTL = 300  # 秒，缓存有效期
+
+
+def _get_cached_result(cache_key: str):
+    """查询缓存，未命中或过期返回 None"""
+    with _CACHE_LOCK:
+        entry = _RESULT_CACHE.get(cache_key)
+        if entry and (time.time() - entry["ts"]) < _CACHE_TTL:
+            return entry["data"]
+        if entry:
+            del _RESULT_CACHE[cache_key]
+    return None
+
+
+def _put_cached_result(cache_key: str, data: dict):
+    """写入缓存并清理过期条目"""
+    with _CACHE_LOCK:
+        _RESULT_CACHE[cache_key] = {"data": data, "ts": time.time()}
+        # 惰性清理过期条目
+        expired = [k for k, v in _RESULT_CACHE.items() if (time.time() - v["ts"]) >= _CACHE_TTL]
+        for k in expired:
+            del _RESULT_CACHE[k]
+
+
+# --- 并行执行器（OCR 与 YOLO 共享） ---
+_executor = ThreadPoolExecutor(max_workers=4)
 
 
 # =========================================================
@@ -238,6 +274,11 @@ def _rule_based_judgment(parking_lane: bool, curb: bool, tactile: bool):
     return True, 0.5, "停车位置确认（车牌清晰）"
 
 
+def _run_yolo(engine, image_bytes):
+    """YOLO 推理封装，供 ThreadPoolExecutor 调用"""
+    return engine.predict(image_bytes)
+
+
 # =========================================================
 # 功能 1: 数据采集
 # =========================================================
@@ -350,11 +391,13 @@ def check_parking():
     """
     停车检测接口
 
-    流程:
+    流程（OCR 与 YOLO 并行执行）:
+    0. 查询结果缓存，命中直接返回
     1. 裁剪图片下方区域
-    2. 云端 OCR 识别车牌
-    3. AI 模型检测停车线/马路牙子/盲道
-    4. 综合判断停车合规性
+    2. 并行: OCR 识别车牌 + YOLOv8-Seg 实例分割
+    3. 车牌一致性交叉验证
+    4. CV+VLM 联合合规判断
+    5. 保存证据 + 写入缓存
     """
     try:
         if "file" not in request.files:
@@ -362,6 +405,14 @@ def check_parking():
 
         file = request.files["file"]
         img_bytes = file.read()
+
+        # --- 步骤 0: 结果缓存查询 ---
+        client_plate_raw = request.form.get("plate_number", "").strip().upper().replace(" ", "")
+        cache_key = hashlib.md5(img_bytes).hexdigest() + "|" + client_plate_raw
+        cached = _get_cached_result(cache_key)
+        if cached is not None:
+            print(f"[缓存] 命中: {cache_key[:16]}...")
+            return jsonify(cached), 200
 
         # -----------------------------------------------------
         # 预处理: 裁剪下方 30% 区域
@@ -390,31 +441,44 @@ def check_parking():
             processed_bytes = img_bytes
 
         # -----------------------------------------------------
-        # 步骤 A: 车牌识别 + 一致性交叉验证
-        # 对原始全图跑服务端 OCR，与客户端传入车牌对比，防止用户用别辆车的图像过关。
+        # 步骤 A+B 并行: OCR 识别车牌 + YOLO 实例分割
+        # OCR 使用原图（远程 I/O），YOLO 使用裁剪图（本地 GPU），无资源争抢
+        # -----------------------------------------------------
+        ocr_future = _executor.submit(recognize_license_plate, img_bytes)
+        yolo_future = _executor.submit(_run_yolo, ai_engine, processed_bytes) if ai_engine else None
+
+        # 等待 YOLO（通常更快，50-200ms）
+        seg_result = yolo_future.result() if yolo_future else None
+
+        # 等待 OCR（远程 API，1-5s）
+        try:
+            server_plate = ocr_future.result(timeout=15)
+        except Exception as ocr_err:
+            print(f"[OCR] 并行调用超时或失败: {ocr_err}")
+            server_plate = None
+
+        # -----------------------------------------------------
+        # 步骤 A-post: 车牌一致性交叉验证
         # -----------------------------------------------------
         raw_client_plate = request.form.get("plate_number", "").strip().upper().replace(" ", "")
-        # 过滤格式明显不合法的客户端车牌（如纯数字、空字符串等）
         client_plate = raw_client_plate if _is_valid_plate(raw_client_plate) else ""
         if raw_client_plate and not client_plate:
             print(f"[过滤] 客户端车牌格式非法，忽略: {raw_client_plate}")
-        server_plate = recognize_license_plate(img_bytes)  # 对原图（全图）跑 OCR
 
         if client_plate and server_plate:
             if not _plates_match(client_plate, server_plate):
                 print(f"[安全] 车牌不符: 客户端={client_plate}, 服务端 OCR={server_plate}")
-                return jsonify(
-                    {
-                        "is_valid": False,
-                        "message": "图像中的车牌与扫描车牌不符，请确认对准自己的车辆后重试",
-                        "confidence": 0.0,
-                        "plate_number": server_plate,
-                    }
-                ), 200
+                result = {
+                    "is_valid": False,
+                    "message": "图像中的车牌与扫描车牌不符，请确认对准自己的车辆后重试",
+                    "confidence": 0.0,
+                    "plate_number": server_plate,
+                }
+                _put_cached_result(cache_key, result)
+                return jsonify(result), 200
             plate_number = client_plate
             print(f"[验证] 车牌一致: {plate_number}")
         elif client_plate:
-            # 服务端未识别到车牌（可能角度遇挡），信任客户端并记录警告
             plate_number = client_plate
             print(f"[警告] 服务端未识别到车牌，使用客户端车牌: {plate_number}")
         elif server_plate:
@@ -424,19 +488,19 @@ def check_parking():
             plate_number = None
 
         if not plate_number or len(plate_number) < 3:
-            return jsonify(
-                {
-                    "is_valid": False,
-                    "message": "未检测到清晰车牌，请对准车牌重拍",
-                    "confidence": 0.0,
-                    "plate_number": "未识别",
-                }
-            ), 200
+            result = {
+                "is_valid": False,
+                "message": "未检测到清晰车牌，请对准车牌重拍",
+                "confidence": 0.0,
+                "plate_number": "未识别",
+            }
+            _put_cached_result(cache_key, result)
+            return jsonify(result), 200
 
         print(f"[业务逻辑] 确认车牌: {plate_number}")
 
         # -----------------------------------------------------
-        # 步骤 B: YOLOv8-Seg 实例分割 + 端侧几何指标计算
+        # 步骤 B-post: YOLO 检测结果后处理 + 几何指标计算
         # -----------------------------------------------------
         parking_lane_found = False
         curb_found = False
@@ -447,8 +511,7 @@ def check_parking():
         vlm_analysis = None
         cv_detections = []
 
-        if ai_engine:
-            seg_result = ai_engine.predict(processed_bytes)
+        if seg_result:
             raw_img = seg_result["image_raw"]
             objects = seg_result["objects"]
             H, W = seg_result["image_size"]
@@ -581,7 +644,7 @@ def check_parking():
             message = "停车位置确认（AI 引擎不可用，仅凭车牌判断）"
 
         # -----------------------------------------------------
-        # 步骤 D: 保存证据
+        # 步骤 D: 保存证据 + 写入缓存
         # -----------------------------------------------------
         result_data = {
             "is_valid": is_valid_parking,
@@ -597,6 +660,8 @@ def check_parking():
         }
         if vlm_analysis:
             result_data["vlm_analysis"] = vlm_analysis
+
+        _put_cached_result(cache_key, result_data)
 
         status_dir = "parking_success" if is_valid_parking else "parking_violation"
         evidence_dir = os.path.join(UPLOAD_ROOT, "evidence", status_dir)
