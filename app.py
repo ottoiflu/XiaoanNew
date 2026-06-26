@@ -38,7 +38,12 @@ from werkzeug.utils import secure_filename
 # 导入配置模块
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from modules.config.settings import settings
-from modules.cv.image_utils import calculate_iou_and_overlap, combine_masks, draw_wireframe_visual, encode_image_to_base64
+from modules.cv.image_utils import (
+    calculate_iou_and_overlap,
+    combine_masks,
+    draw_wireframe_visual,
+    encode_image_to_base64,
+)
 from modules.experiment.scoring import ScoringEngine
 from modules.prompt.manager import load_prompt
 from modules.vlm.parser import parse_vlm_response
