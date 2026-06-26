@@ -1,0 +1,13 @@
+exp_name: baseline_cv_enhanced_p5_scoring_cv_p4
+description: "Benchmark v1 基线：cv_enhanced_p5 prompt + scoring_optimized_cv_p4 (threshold=0.35)，88张均衡子集(44yes+44no, seed=42)"
+model: qwen/qwen3-vl-30b-a3b-instruct
+prompt_id: cv_enhanced_p5
+max_size: [768, 768]
+quality: 80
+segmentor_weights: /root/otto/XiaoanNew/assets/weights/best.pt
+segmentor_device: cuda:0
+conf_threshold: 0.6
+scoring_config: assets/configs/scoring_optimized_cv_p4.yaml
+benchmark_manifest: data/benchmark_v1/manifest_v1.csv
+output_root: /root/otto/XiaoanNew/outputs/benchmark_runs
+max_workers: 8

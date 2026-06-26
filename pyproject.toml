@@ -100,3 +100,8 @@ explicit = true  # 只有明确指定时，才去这个源找包
 torch = { index = "pytorch-cu121" }
 torchvision = { index = "pytorch-cu121" }
 torchaudio = { index = "pytorch-cu121" }
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.7",
+]
