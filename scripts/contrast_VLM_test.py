@@ -42,8 +42,8 @@ CONFIG = {
 }
 
 DATA_FOLDERS = [
-    os.path.join(_PROJECT_ROOT, "data/Compliance_test_data/no_val"),
-    os.path.join(_PROJECT_ROOT, "data/Compliance_test_data/yes_val"),
+    os.path.join(_PROJECT_ROOT, "data/compliance/no_val"),
+    os.path.join(_PROJECT_ROOT, "data/compliance/yes_val"),
 ]
 
 SAVE_DIR = os.path.join(_PROJECT_ROOT, "outputs/experiment_outputs")

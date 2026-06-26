@@ -63,8 +63,8 @@ def batch_rotate(input_dir, output_dir, angle, expand=False):
 
 if __name__ == "__main__":
     # 在这里直接修改参数
-    input_directory = r"/root/XiaoanNew/App_collected_dataset/zz03"  # 请修改为实际的输入图片路径
-    output_directory = r"/root/XiaoanNew/App_collected_dataset/zz03_rotate"  # 请修改为实际的输出保存路径
+    input_directory = r"/root/otto/XiaoanNew/data/raw_collected/zz03"  # 请修改为实际的输入图片路径
+    output_directory = r"/root/otto/XiaoanNew/data/raw_collected/zz03_rotate"  # 请修改为实际的输出保存路径
     rotation_angle = 270.0  # 旋转角度（逆时针，单位：度）
     expand_canvas = True  # 是否扩展画布以包含完整图片（避免四角被裁剪），True为扩展，False为保持原尺寸
 

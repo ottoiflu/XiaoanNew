@@ -38,20 +38,20 @@ class ExperimentConfig:
     quality: int = 80
 
     # 模型配置
-    segmentor_weights: str = "/root/XiaoanNew/assets/weights/best.pt"
+    segmentor_weights: str = "/root/otto/XiaoanNew/assets/weights/best.pt"
     segmentor_device: str = "cuda:0"
     conf_threshold: float = 0.6
 
     # 数据目录
     data_folders: List[str] = field(
         default_factory=lambda: [
-            "/root/XiaoanNew/data/Compliance_test_data/no_val",
-            "/root/XiaoanNew/data/Compliance_test_data/yes_val",
+            "/root/otto/XiaoanNew/data/compliance/no_val",
+            "/root/otto/XiaoanNew/data/compliance/yes_val",
         ]
     )
 
     # 输出配置
-    output_root: str = "/root/XiaoanNew/outputs/test_outputs"
+    output_root: str = "/root/otto/XiaoanNew/outputs/test_outputs"
     save_visuals: bool = True
 
     # API 配置

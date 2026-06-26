@@ -74,7 +74,7 @@ except Exception as e:
     ocr_client = None
 
 # --- YOLOv8-Seg 模型配置 ---
-YOLO_SEG_WEIGHTS = "/root/XiaoanNew/assets/weights/best.pt"
+YOLO_SEG_WEIGHTS = settings.YOLO_WEIGHTS
 
 # 尝试加载 YOLOv8-Seg 模型
 ai_engine = None
@@ -82,7 +82,7 @@ try:
     from modules.cv.yolov8_inference import load_yolov8_seg
 
     print(f"🚀 正在加载 YOLOv8-Seg 模型: {YOLO_SEG_WEIGHTS}")
-    ai_engine = load_yolov8_seg(YOLO_SEG_WEIGHTS, device="cuda:0")
+    ai_engine = load_yolov8_seg(YOLO_SEG_WEIGHTS, device=settings.INFERENCE_DEVICE)
     print("✅ YOLOv8-Seg 模型加载成功!")
 
 except ImportError as e:
@@ -275,8 +275,8 @@ def _rule_based_judgment(parking_lane: bool, curb: bool, tactile: bool):
 
 
 def _run_yolo(engine, image_bytes):
-    """YOLO 推理封装，供 ThreadPoolExecutor 调用"""
-    return engine.predict(image_bytes)
+    """YOLO 推理封装，供 ThreadPoolExecutor 调用。跳过内置可视化生成以节省 CPU。"""
+    return engine.predict(image_bytes, visual=False, retina_masks=True, max_input_size=1280)
 
 
 # =========================================================
@@ -517,7 +517,11 @@ def check_parking():
             H, W = seg_result["image_size"]
 
             class_counts = {"Electric bike": 0, "Curb": 0, "parking lane": 0, "Tactile paving": 0}
-            main_bike_mask, main_bike_conf = None, -1.0
+            # 主车选取：取「距画面中心最近」的电动车，而非置信度最高者。
+            # 前端引导阶段已将目标车对中到画面中央，此处以中心距离接住该约束，
+            # 避免多车场景下误选到旁边的邻车（与标注口径一致：以中心车辆为准）。
+            main_bike_mask, main_bike_center_dist = None, float("inf")
+            img_cx, img_cy = W / 2.0, H / 2.0
 
             for obj in objects:
                 label = obj["label"]
@@ -530,9 +534,13 @@ def check_parking():
                     curb_found = True
                 elif label == "Tactile paving":
                     tactile_paving_found = True
-                if label == "Electric bike" and obj["confidence"] > main_bike_conf:
-                    main_bike_conf = obj["confidence"]
-                    main_bike_mask = obj.get("mask")
+                if label == "Electric bike":
+                    bx1, by1, bx2, by2 = obj["bbox"]
+                    bcx, bcy = (bx1 + bx2) / 2.0, (by1 + by2) / 2.0
+                    center_dist = (bcx - img_cx) ** 2 + (bcy - img_cy) ** 2
+                    if center_dist < main_bike_center_dist:
+                        main_bike_center_dist = center_dist
+                        main_bike_mask = obj.get("mask")
 
             print(f"[AI检测] 停车线:{parking_lane_found}, 马路牙子:{curb_found}, 盲道:{tactile_paving_found}")
 
@@ -709,4 +717,4 @@ if __name__ == "__main__":
     print(f"📡 OCR服务: {'可用' if ocr_client else '不可用'}")
     print("=" * 60)
 
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=settings.FLASK_PORT, debug=False)

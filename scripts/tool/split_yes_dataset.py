@@ -3,8 +3,8 @@ import random
 import shutil
 
 # ================= 配置区域 =================
-src_folder = "/root/XiaoanNew/App_collected_dataset/Xiaoan_datasets/yes_val"
-dest_folder = "/root/XiaoanNew/App_collected_dataset/Xiaoan_datasets/yes_reserve_val"
+src_folder = "/root/otto/XiaoanNew/data/raw_collected/Xiaoan_datasets/yes_val"
+dest_folder = "/root/otto/XiaoanNew/data/raw_collected/Xiaoan_datasets/yes_reserve_val"
 label_file_name = "labels.txt"
 num_to_sample = 400
 

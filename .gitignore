@@ -32,10 +32,10 @@
 !assets/prompts/
 !assets/prompts/*.yaml
 
-# 模型权重：建议只放行一个小体积的示例权重，或者只放行目录
-# 注意：若权重 > 100MB，Git 提交会失败。建议使用专门的备份方案而非 Git。
+# 模型权重：仅放行生产权重 best.pt（约 89MB）。
+# 其余权重（best_v1/yolo*-seg 等）体积大，>100MB 会被 GitHub 拒绝，不入库，靠服务器/网盘分发。
 !assets/weights/
-!assets/weights/*.pt
+!assets/weights/best.pt
 
 # ==========================================
 # 5. 绝对忽略：敏感信息、本地环境、大文件

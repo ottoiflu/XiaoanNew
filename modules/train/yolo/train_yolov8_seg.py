@@ -8,7 +8,7 @@ from ultralytics import YOLO
 def main():
     """加载预训练模型并启动实例分割训练。"""
     project_root = Path(__file__).resolve().parents[3]
-    dataset_yaml = project_root / "data" / "yolo_seg_dataset" / "dataset.yaml"
+    dataset_yaml = project_root / "data" / "yolo" / "dataset_base" / "dataset.yaml"
     output_dir = project_root / "outputs" / "train_outputs"
 
     # YOLOv8x-seg 预训练权重，精度最高

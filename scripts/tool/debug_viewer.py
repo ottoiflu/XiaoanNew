@@ -5,7 +5,7 @@ import pandas as pd
 from PIL import Image
 
 # ================= 配置区域 =================
-BASE_DATA_DIR = r"/root/XiaoanNew/App_collected_dataset/Xiaoan_datasets"
+BASE_DATA_DIR = r"/root/otto/XiaoanNew/data/raw_collected/Xiaoan_datasets"
 CSV_PATH = r"/root/XiaoanNew/outputs/experiment_outputs/qwen3-vl-30b-a3b-instruct_yolov8seg_cv_enhanced_p3_test.csv"
 MASK_DIR = r"/root/XiaoanNew/outputs/test_outputs/seg_visuals"
 

@@ -87,7 +87,7 @@ class YOLOv8SegInference:
 
     def predict(
         self, source: Union[str, np.ndarray, Image.Image, bytes], conf: float = None, iou: float = 0.7, imgsz: int = 640,
-        retina_masks: bool = False,
+        retina_masks: bool = False, visual: bool = True, max_input_size: int = None,
     ) -> Dict:
         """
         执行推理，返回结构化结果
@@ -98,6 +98,8 @@ class YOLOv8SegInference:
             iou: NMS IOU阈值
             imgsz: 推理图像尺寸
             retina_masks: 是否使用原图分辨率掩膜（避免低分辨率原型导致的掩膜截断）
+            visual: 是否生成叠加可视化图。check_parking 等只需结构化结果的场景传 False 以节省 CPU
+            max_input_size: 推理分辨率上限（覆盖 imgsz）。用于在大图上提升小目标召回
 
         Returns:
             {
@@ -131,8 +133,11 @@ class YOLOv8SegInference:
 
         H, W = img_array.shape[:2]
 
-        # 执行推理
-        results = self.model.predict(img_array, conf=conf, iou=iou, imgsz=imgsz, retina_masks=retina_masks, verbose=False)
+        # 执行推理（max_input_size 若指定则覆盖 imgsz 作为推理分辨率）
+        effective_imgsz = max_input_size if max_input_size is not None else imgsz
+        results = self.model.predict(
+            img_array, conf=conf, iou=iou, imgsz=effective_imgsz, retina_masks=retina_masks, verbose=False
+        )
 
         result = results[0]
 
@@ -177,8 +182,8 @@ class YOLOv8SegInference:
                 masks_combined[mask > 0.5, 2] = color[2]
                 masks_combined[mask > 0.5, 3] = 120  # 半透明
 
-        # 生成可视化图像
-        visual_img = self._draw_visualization(img_array.copy(), objects, masks_combined)
+        # 生成可视化图像（visual=False 时跳过昂贵的叠加绘制，直接复用原图）
+        visual_img = self._draw_visualization(img_array.copy(), objects, masks_combined) if visual else img_array
 
         return {"image_raw": img_array, "image_visual": visual_img, "objects": objects, "image_size": [H, W]}
 

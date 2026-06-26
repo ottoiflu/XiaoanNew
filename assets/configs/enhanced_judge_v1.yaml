@@ -1,0 +1,59 @@
+# 增强判别算法实验配置
+# 用于评估关键点角度检测 + 深度距离估计 + 多准则融合的效果
+
+experiment:
+  name: "enhanced_judge_v1"
+  description: "关键点回归 + 深度距离 + 多准则融合联合评估"
+
+# 数据集
+dataset:
+  data_dir: "data/Compliance_test_data"
+
+# YOLO 推理配置
+yolo:
+  weights: "assets/weights/best.pt"
+  conf_threshold: 0.3
+  device: "cuda:0"
+
+# 增强判别器配置
+enhanced_judge:
+  enable_keypoint_angle: true
+  enable_depth_distance: true
+  enable_bev_distance: false
+  enable_tipping_detection: true
+
+  weight_angle: 0.30
+  weight_distance: 0.30
+  weight_context: 0.25
+  weight_composition: 0.15
+
+  veto_tactile: true
+  veto_tipping: true
+
+  compliant_threshold: 0.65
+  borderline_threshold: 0.40
+  uncertain_min_confidence: 0.30
+
+  reference_conflict_strategy: "weighted_best"
+
+# 关键点检测器
+keypoint:
+  angle_compliant_max: 15.0
+  angle_borderline_max: 30.0
+  angle_perpendicular_min: 75.0
+  tip_aspect_ratio_threshold: 2.5
+  contour_min_area: 200
+
+# 深度估计器
+depth:
+  model_name: "depth-anything/Depth-Anything-V2-Large-hf"
+  device: "cuda:0"
+  default_focal_factor: 0.8
+  depth_scale: 5.0
+  distance_compliant_max: 0.30
+  distance_borderline_max: 0.50
+
+# 输出配置
+output:
+  dir: "outputs/enhanced_experiments"
+  save_detailed_csv: true

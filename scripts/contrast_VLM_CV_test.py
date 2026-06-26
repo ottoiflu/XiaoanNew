@@ -35,8 +35,8 @@ from modules.cv.yolov8_inference import load_yolov8_seg
 
 # 1. 数据文件夹
 DATA_FOLDERS = [
-    r"/root/XiaoanNew/data/Compliance_test_data/no_val",
-    r"/root/XiaoanNew/data/Compliance_test_data/yes_val",
+    r"/root/otto/XiaoanNew/data/compliance/no_val",
+    r"/root/otto/XiaoanNew/data/compliance/yes_val",
 ]
 
 # 2. 输出目录

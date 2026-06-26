@@ -6,9 +6,9 @@ import pandas as pd
 from PIL import Image
 
 # ================= 配置区域 =================
-DATA_DIR = r"/root/XiaoanNew/App_collected_dataset/Campus_val"
+DATA_DIR = r"/root/otto/XiaoanNew/data/raw_collected/Campus_val"
 LABEL_FILE_NAME = "labels.txt"
-SPLIT_BASE_DIR = r"/root/XiaoanNew/App_collected_dataset/Xiaoan_datasets"
+SPLIT_BASE_DIR = r"/root/otto/XiaoanNew/data/raw_collected/Xiaoan_datasets"
 
 if not os.path.exists(SPLIT_BASE_DIR):
     os.makedirs(SPLIT_BASE_DIR)

@@ -1,0 +1,40 @@
+# 双分支并行管线最优配置
+# 实验结果: F1=83.05%, Acc=80.00%, Pre=72.06%, Rec=98.00%
+# 用法: uv run python scripts/cv_dual_branch_experiment.py --mode dual \
+#       --vlm-csv <vlm_data.csv> --vlm-scoring assets/configs/scoring_optimized_cv_p4.yaml
+
+# 双分支融合参数
+dual_branch:
+  cv_weight: 0.30
+  vlm_weight: 0.70
+  threshold: 0.35
+  no_ref_factor: 0.2
+  tactile_veto: true
+
+# CV 几何判定参数
+cv_judge:
+  angle_min: 60
+  angle_max: 120
+  angle_tolerance: 10
+  iou_threshold: 0.05
+  overlap_threshold: 0.15
+  tactile_veto: 0.03
+  fallback_no_ref: "compliant"
+
+# VLM 数据源配置
+vlm:
+  prompt: "cv_enhanced_p4"
+  workflow: "vlm_cv"
+  scoring_config: "assets/configs/scoring_optimized_cv_p4.yaml"
+
+# 分割模型配置
+segmentor:
+  weights: "assets/weights/best.pt"
+  device: "cuda:0"
+  conf_threshold: 0.6
+  imgsz: 768
+
+# 测试数据
+data_folders:
+  - "data/Compliance_test_data/no_val"
+  - "data/Compliance_test_data/yes_val"

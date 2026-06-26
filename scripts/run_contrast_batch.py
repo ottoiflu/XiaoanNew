@@ -52,8 +52,8 @@ SCORING_YAML = "assets/configs/scoring_default.yaml"
 SCORING_OPT = "assets/configs/scoring_optimized_cv_p4.yaml"
 
 DATA_FOLDERS = [
-    os.path.join(_PROJECT_ROOT, "data/Compliance_test_data/no_val"),
-    os.path.join(_PROJECT_ROOT, "data/Compliance_test_data/yes_val"),
+    os.path.join(_PROJECT_ROOT, "data/compliance/no_val"),
+    os.path.join(_PROJECT_ROOT, "data/compliance/yes_val"),
 ]
 
 OUTPUT_ROOT = os.path.join(_PROJECT_ROOT, "outputs/contrast_experiments")

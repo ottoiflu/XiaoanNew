@@ -7,7 +7,7 @@ from PIL import Image
 
 # ================= 配置区域 =================
 # 默认扫描的基础目录
-BASE_PATH = r"/root/XiaoanNew/App_collected_dataset/Xiaoan_datasets"
+BASE_PATH = r"/root/otto/XiaoanNew/data/raw_collected/Xiaoan_datasets"
 # 默认备选的待分拣目录名（会自动合并 BASE_PATH 下已有的目录）
 DATA_FOLDERS = ["yes_val", "no_val", "train", "val", "test"]
 

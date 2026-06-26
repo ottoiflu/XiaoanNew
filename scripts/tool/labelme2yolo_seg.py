@@ -59,8 +59,8 @@ def convert_one(json_path, img_w, img_h):
 def main():
     """执行 LabelMe -> YOLO 格式转换和数据集划分。"""
     project_root = Path(__file__).resolve().parents[2]
-    src_dir = project_root / "data" / "all_labeled_data"
-    out_dir = project_root / "data" / "yolo_seg_dataset"
+    src_dir = project_root / "data" / "yolo" / "labelme_raw"
+    out_dir = project_root / "data" / "yolo" / "dataset_base"
 
     if out_dir.exists():
         print(f"target dir exists, clearing: {out_dir}")
