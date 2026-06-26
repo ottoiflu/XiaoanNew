@@ -69,18 +69,27 @@ CSV_HEADERS = [
     "gt",
     "pred",
     "correct",
-    "composition",
-    "angle",
-    "distance",
-    "context",
+    # VLM 输出的四维状态标签
+    "composition_status",
+    "angle_status",
+    "distance_status",
+    "context_status",
+    # ScoringEngine 映射后的四维数值分（用于错误归因：看是哪一维把综合分带偏的）
+    "comp_score",
+    "angle_score",
+    "dist_score",
+    "ctx_score",
+    # 综合加权分
     "final_score",
+    # CV 检测信息
     "num_detections",
     "electric_bike",
     "curb",
     "parking_lane",
     "tactile_paving",
     "main_vehicle_detected",
-    "reason",
+    # VLM 原因摘要
+    "vlm_reason",
     "latency",
 ]
 
@@ -208,15 +217,21 @@ def process_image(args: tuple) -> list:
         if not vlm_result.is_valid:
             pred, score = "error", 0.0
             comp, ang, dist, ctx = "parse_fail", "parse_fail", "parse_fail", "parse_fail"
+            comp_s = ang_s = dist_s = ctx_s = 0.0
             reason = vlm_result.parse_error
         else:
             sr = config["_scoring_engine"].score(*vlm_result.statuses)
             pred = "yes" if sr.is_compliant else "no"
             score = sr.final_score
             comp = vlm_result.composition
-            ang = vlm_result.angle
+            ang  = vlm_result.angle
             dist = vlm_result.distance
-            ctx = vlm_result.context
+            ctx  = vlm_result.context
+            # 四维单独数值分（错误归因用）
+            comp_s = sr.dimension_scores.get("composition", 0.0)
+            ang_s  = sr.dimension_scores.get("angle",       0.0)
+            dist_s = sr.dimension_scores.get("distance",    0.0)
+            ctx_s  = sr.dimension_scores.get("context",     0.0)
             reason = str(vlm_result.reason)[:300]
 
         correct = "1" if normalize_label(pred) == normalize_label(gt) else "0"
@@ -224,7 +239,9 @@ def process_image(args: tuple) -> list:
 
         return [
             fname, gt, pred, correct,
-            comp, ang, dist, ctx, round(score, 4),
+            comp, ang, dist, ctx,
+            round(comp_s, 4), round(ang_s, 4), round(dist_s, 4), round(ctx_s, 4),
+            round(score, 4),
             len(objects),
             class_counts.get("Electric bike", 0),
             class_counts.get("Curb", 0),
@@ -238,7 +255,9 @@ def process_image(args: tuple) -> list:
         import traceback
         traceback.print_exc()
         latency = round(time.time() - start_t, 3)
-        return [fname, gt, "error", "0", "err", "err", "err", "err", 0.0,
+        return [fname, gt, "error", "0",
+                "err", "err", "err", "err",
+                0.0, 0.0, 0.0, 0.0, 0.0,
                 0, 0, 0, 0, 0, 0, str(e)[:200], latency]
 
 
