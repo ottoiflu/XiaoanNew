@@ -22,7 +22,7 @@
     │                                              │
     │                          端侧计算 IoU + 质心偏移
     │                                              │
-    │                           IoU≥0.40 连续3帧？
+    │                           IoU≥0.35 连续3帧？
     │                              ├── 否 → 方向箭头引导
     │                              └── 是 → 缓存帧，进入 ReadyToCapture
     │
@@ -47,7 +47,7 @@
 |------|------|----------|
 | `PlateScanning` | 车牌扫描中 | 初始状态 |
 | `GuidanceLoop(iou, offsetX, offsetY, bikeDetected)` | 引导取景 | 车牌确认后自动进入 |
-| `ReadyToCapture(iou)` | 就绪等待确认 | IoU ≥ 0.40 连续 3 帧 |
+| `ReadyToCapture(iou)` | 就绪等待确认 | IoU ≥ 0.35 连续 3 帧 |
 | `Uploading` | 上传合规判断中 | 用户点击"确认还车" |
 | `ResultReady(result)` | 结果展示 | 服务端返回判断结果 |
 | `Error(message)` | 错误 | 网络异常或业务错误 |
@@ -65,9 +65,9 @@ GuidanceLoop ←─────────────────────�
   │ 上传帧至 /detect_static（500ms节流）      │
   │ 端侧计算 IoU + 质心偏移                   │
   │                                          │
-  ├── IoU < 0.40 → UI 显示方向箭头 ──────────┘
+  ├── IoU < 0.35 → UI 显示方向箭头 ──────────┘
   │
-  │ IoU ≥ 0.40 连续 3 帧，缓存当前帧
+  │ IoU ≥ 0.35 连续 3 帧，缓存当前帧
   ▼
 ReadyToCapture
   │ 绿色边框 + "确认还车"按钮
@@ -125,10 +125,10 @@ Android                              服务端
 |-------|-------------|------|
 | `Electric bike` | 0 | 主目标，用于 IoU 基准框 |
 | `Curb` | 1 | 辅助参照物（马路牙子） |
-| `parking lane` | 2 | 停车线，与电动车 IoU ≥ 0.40 视为对准 |
+| `parking lane` | 2 | 停车线，与电动车 IoU ≥ 0.35 视为对准 |
 | `Tactile paving` | 3 | 盲道，重叠则警告违规风险 |
 
-**IoU 阈值**：端侧计算电动车检测框与停车线检测框的 IoU，≥ 0.40 且连续 3 帧稳定则判定对准。
+**IoU 阈值**：端侧计算电动车检测框与停车线检测框的 IoU，≥ 0.35 且连续 3 帧稳定则判定对准。
 
 ### 3.2 还车判断阶段（Uploading）
 
