@@ -624,6 +624,31 @@
 ### Fixed
 - 修正 dataset.yaml 示例路径为 yolo/data/coco
 
+## [0.8.0] - 2026-03-24
+## [0.8.1] - 2025-03-28
+
+### Added
+- 实验完备性审计：系统性检查 28 组实验的对称覆盖
+- 6 组缺失对比实验补入批量运行器矩阵（实验总数 24→30）
+  - vlm_p7_veto/weighted, vlm_p4_3_veto/opt_weighted, vlm/cv_p4_opt_weighted
+- 纯 VLM 版 p4.3 提示词 `assets/prompts/standard_p4_3.yaml`
+- 专业可视化图表生成器 `scripts/tool/generate_charts.py`，9 张出版级图表：
+  - F1 分组柱状图、P-R 散点图、热力图、p4 消融分析
+  - 误差分布、veto vs weighted 配对比较、CV 贡献瀑布图
+  - 延迟对比、混淆矩阵
+- 实验报告全面重写 `EXPERIMENT_REPORT.md`：六项核心发现 + 完整数据表
+
+### Changed
+- 实验矩阵从 24 组扩展至 30 组，消除 p7/p4.3 对称性缺口
+
+
+### Changed
+- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
+- yolov8_inference.py predict() 方法新增 retina_masks 参数
+- 重组实验输出结构
+  - 每次测试创建独立目录 `exp_{timestamp}_{name}/`
+  - 目录内包含 results.csv 和 visuals/ 子目录
+- 历史实验数据迁移至 archived_experiments/
 
 ## [0.7.0] - 2026-03-24
 
