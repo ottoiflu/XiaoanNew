@@ -24,8 +24,9 @@
 | :--- | :--- |
 | **环境配置/增加依赖** | [环境规范](docs/ENV.md) |
 | **修改后端接口/API** | [API 接口文档](docs/API.md) |
-| **业务流程/端云协同** | [业务流程说明](docs/BUSINESS_FLOW.md) |
-| **目录结构说明** | [项目结构](docs/PROJECT_STRUCTURE.md) |
+| **理解业务逻辑** | [业务流程说明](docs/BUSINESS_FLOW.md) |
+| **项目结构与模块职责** | [项目结构](docs/PROJECT_STRUCTURE.md) |
+| **设计理念与实验灵感** | [设计文档](docs/IDEA.md) |
 
 ## 5. AI 执行原则 (Highest Priority)
 1. **环境操作**: 任何安装包的操作必须使用 `uv add`。执行脚本必须前缀 `uv run`。
