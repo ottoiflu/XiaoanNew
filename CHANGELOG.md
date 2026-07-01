@@ -4,6 +4,27 @@
 
 ## [Unreleased]
 
+### Docs
+- `docs/IDEA.md` §3 整章重写：旧四维（构图/角度/距离/环境）→ 新四维（停放位置/禁停介质/摆放角度/车辆状态），新增 `[无参照]`/`[N/A]` 标签机制、禁停介质视觉判据约束、纯加权无否决分支聚合逻辑（#78c0607, #bb802d9, #40e8247）
+- 同步修正 `docs/IDEA.md` §1 核心哲学中的过时维度名引用
+- 同步修正 `docs/API.md` 评分表权重与阈值（25%→20%、40%→45%、0.60→0.35，与 scoring_optimized_cv_p4.yaml 一致）
+- 同步修正 `docs/BUSINESS_FLOW.md` 主车选取策略（最高置信度→nearest-center）及 ScoringEngine 权重表
+- `docs/` 清理失效文档链接：移除 AGENTS.md 中对 TRAINING.md/EXPERIMENTS.md 的引用
+- 根目录 AGENTS.md 补全缺失的 API 端点（/collect/upload、/segmentation/detect）
+- 新增 `scripts/`、`modules/`、`assets/`、`outputs/`、`data/` 目录 README.md
+
+### Removed
+- `modules/train/yolo/train_yolov8_seg.py`：全线死代码，零引用，删除（#chore/cleanup-deadcode）
+
+### Moved to _archived
+- `assets/configs/_archived/`：9 个孤立评分/实验配置 YAML 移入（dual_branch_optimized、enhanced_judge_v1、scoring_grid_best、scoring_optimized_p11/p12、test_config_system、v2_optimized_p5/p6/p6_otto）
+- `assets/prompts/_archived/`：12 个孤立提示词 YAML 移入（cv_enhanced_p10/p11/p12/p15/p3_compare/p9、standard_p10/p11/p12/p2/p3/p9）。注：p4-p8 系列保留（run_contrast_batch_v2.py 在用）
+- `scripts/_archived/`：2 个被 v2 完全替代的旧脚本移入（contrast_VLM_CV_test.py、run_contrast_batch.py）
+
+### Infrastructure
+- 删除服务器 `/root/otto/XiaoanNew/temp_processing/` 空目录
+- 全程 `ruff check` 零违规验证
+
 ## [0.9.1] - 2026-05-31
 
 ### Added
@@ -603,31 +624,6 @@
 ### Fixed
 - 修正 dataset.yaml 示例路径为 yolo/data/coco
 
-## [0.8.0] - 2026-03-24
-## [0.8.1] - 2025-03-28
-
-### Added
-- 实验完备性审计：系统性检查 28 组实验的对称覆盖
-- 6 组缺失对比实验补入批量运行器矩阵（实验总数 24→30）
-  - vlm_p7_veto/weighted, vlm_p4_3_veto/opt_weighted, vlm/cv_p4_opt_weighted
-- 纯 VLM 版 p4.3 提示词 `assets/prompts/standard_p4_3.yaml`
-- 专业可视化图表生成器 `scripts/tool/generate_charts.py`，9 张出版级图表：
-  - F1 分组柱状图、P-R 散点图、热力图、p4 消融分析
-  - 误差分布、veto vs weighted 配对比较、CV 贡献瀑布图
-  - 延迟对比、混淆矩阵
-- 实验报告全面重写 `EXPERIMENT_REPORT.md`：六项核心发现 + 完整数据表
-
-### Changed
-- 实验矩阵从 24 组扩展至 30 组，消除 p7/p4.3 对称性缺口
-
-
-### Changed
-- 修复掩膜因 YOLO 原型分辨率不足导致的断裂（resolve_mask_priority 优先级冲突解决）
-- yolov8_inference.py predict() 方法新增 retina_masks 参数
-- 重组实验输出结构
-  - 每次测试创建独立目录 `exp_{timestamp}_{name}/`
-  - 目录内包含 results.csv 和 visuals/ 子目录
-- 历史实验数据迁移至 archived_experiments/
 
 ## [0.7.0] - 2026-03-24
 
