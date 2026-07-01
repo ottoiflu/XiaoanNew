@@ -72,13 +72,23 @@
 | 文件 | 说明 |
 |------|------|
 | `contrast_VLM_CV_test_v2.py` | **主实验入口**。YOLOv8-Seg + VLM 联合判定，输入线框轮廓图，Python 端预计算 IoU/重叠率。通过 `--config` 指定 YAML 配置文件。 |
-| `contrast_VLM_CV_test.py` | v1 版联合测试脚本，将原图 + 分割可视化图 + 结构化检测信息一起发给 VLM。 |
 | `contrast_VLM_test.py` | 纯 VLM 测试脚本，不使用 CV 预处理，支持加权评分和一票否决两种评判模式。 |
+| `run_contrast_batch_v2.py` | 批量实验运行器，三层缓存架构。支持 30 组实验矩阵，覆盖 p4~p7 全部 prompt + veto/weighted 评分。 |
 | `depth_pointcloud_demo.py` | 展示脚本：YOLO 分割 + Depth Anything V2 深度估计 + Open3D 点云可视化。输出原图、分割图、深度图、单车点云、全场景点云。 |
+| `scoring_grid_search.py` | 加权评分网格搜索脚本，覆盖权重、阈值、分数映射三层搜索空间。 |
 | `yolov8_seg_batch.py` | YOLOv8-Seg 批量处理脚本，支持自定义置信度、输出目录、并行线程数。 |
+| `visualize_pointcloud_gui.py` | 点云 GUI 可视化脚本，交互式查看 PLY 点云。 |
 
 | 工具脚本 (`scripts/tool/`) | 说明 |
 |------|------|
+| `deploy_new_weights.py` | 训练权重自动部署，`--watch` 模式监控训练完成后部署到 `assets/weights/best.pt` |
+| `generate_charts.py` | 出版级实验图表生成器（F1 柱状图、混淆矩阵、延迟对比等 9 张） |
+| `apply_scene_review.py` | 场景标注审核工具 |
+| `build_label_set.py` | 标注集构建工具 |
+| `rescore_experiments.py` | 实验重新评分工具 |
+| `labelme2yolo_seg.py` | LabelMe JSON 转 YOLO-Seg 格式 |
+| `merge_union_masks.py` | 掩膜并集合并 |
+| `scene_classify.py` | 场景分类工具 |
 | `batch_rotate_images.py` | 批量旋转图片 |
 | `split_yes_dataset.py` | 拆分合规数据集 |
 | `copy_sample_view.py` | 复制样本用于预览 |
@@ -92,9 +102,9 @@
 
 | 子目录 | 说明 |
 |------|------|
-| `configs/` | 实验参数配置 YAML。`default.yaml`（默认配置）、`scoring_default.yaml`（评分权重）、`template.yaml`（空白模板）、`v2_optimized_p5.yaml` / `v2_optimized_p6.yaml`（优化后配置）。 |
-| `prompts/` | 提示词模板 YAML。`standard_p*` 系列为纯 VLM 提示词，`cv_enhanced_p*` 系列为 CV 增强提示词（包含 IoU、重叠率等结构化数据）。 |
-| `weights/` | 模型权重文件。`best.pt` 为当前 YOLOv8-Seg 生产权重。 |
+| `configs/` | 实验参数配置 YAML。`default.yaml`（默认配置）、`scoring_optimized_cv_p4.yaml`（优化版评分）、`scoring_default.yaml`（默认评分）、`template.yaml`（空白模板）。`_archived/` 存放已弃用配置。 |
+| `prompts/` | 提示词模板 YAML。`standard_p*` 系列为纯 VLM 提示词，`cv_enhanced_p*` 系列为 CV 增强提示词（包含 IoU、重叠率等结构化数据）。p4-p8 系列在用，`_archived/` 存放已淘汰提示词。 |
+| `weights/` | 模型权重文件。`best.pt` 为当前 YOLOv8-Seg 生产权重，`archive/` 存放旧版本备份。 |
 
 ### `data/` - 数据中心
 
@@ -106,6 +116,8 @@
 | `Compliance_test_data/no_val_all/` | 不合规完整集 | 422 |
 | `Compliance_test_data/positive_extra/` | 额外合规样本 | 1229 |
 | `Compliance_test_data/negative_extra/` | 额外不合规样本 | 279 |
+| `benchmark_v1/` | 基准测试 v1 数据集 | - |
+| `benchmark_v2/` | 基准测试 v2 数据集 | - |
 | `App_collected_dataset/zz01_rotate/` | 采集数据（旋转校正） | 30 |
 | `App_collected_dataset/zz02_rotate/` | 采集数据（旋转校正） | 53 |
 | `App_collected_dataset/zz03/` | 采集数据（原始） | 54 |
@@ -138,6 +150,7 @@
 | 子目录 | 说明 |
 |------|------|
 | `test_outputs/` | 实验结果目录，每次实验生成 `exp_YYYYMMDD_HHMMSS_<实验名>/`，包含 CSV 结果、可视化图片、配置快照。`leaderboard_top20.csv` 为全局排行榜。 |
+| `contrast_experiments/` | 对比实验聚合输出，含汇总报告与数据分析。 |
 | `depth_demo/` | 深度估计展示脚本输出目录。 |
 
 ## 3. 开发约束

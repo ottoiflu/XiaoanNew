@@ -4,6 +4,27 @@
 
 ## [Unreleased]
 
+### Docs
+- `docs/IDEA.md` §3 整章重写：旧四维（构图/角度/距离/环境）→ 新四维（停放位置/禁停介质/摆放角度/车辆状态），新增 `[无参照]`/`[N/A]` 标签机制、禁停介质视觉判据约束、纯加权无否决分支聚合逻辑（#78c0607, #bb802d9, #40e8247）
+- 同步修正 `docs/IDEA.md` §1 核心哲学中的过时维度名引用
+- 同步修正 `docs/API.md` 评分表权重与阈值（25%→20%、40%→45%、0.60→0.35，与 scoring_optimized_cv_p4.yaml 一致）
+- 同步修正 `docs/BUSINESS_FLOW.md` 主车选取策略（最高置信度→nearest-center）及 ScoringEngine 权重表
+- `docs/` 清理失效文档链接：移除 AGENTS.md 中对 TRAINING.md/EXPERIMENTS.md 的引用
+- 根目录 AGENTS.md 补全缺失的 API 端点（/collect/upload、/segmentation/detect）
+- 新增 `scripts/`、`modules/`、`assets/`、`outputs/`、`data/` 目录 README.md
+
+### Removed
+- `modules/train/yolo/train_yolov8_seg.py`：全线死代码，零引用，删除（#chore/cleanup-deadcode）
+
+### Moved to _archived
+- `assets/configs/_archived/`：9 个孤立评分/实验配置 YAML 移入（dual_branch_optimized、enhanced_judge_v1、scoring_grid_best、scoring_optimized_p11/p12、test_config_system、v2_optimized_p5/p6/p6_otto）
+- `assets/prompts/_archived/`：12 个孤立提示词 YAML 移入（cv_enhanced_p10/p11/p12/p15/p3_compare/p9、standard_p10/p11/p12/p2/p3/p9）。注：p4-p8 系列保留（run_contrast_batch_v2.py 在用）
+- `scripts/_archived/`：2 个被 v2 完全替代的旧脚本移入（contrast_VLM_CV_test.py、run_contrast_batch.py）
+
+### Infrastructure
+- 删除服务器 `/root/otto/XiaoanNew/temp_processing/` 空目录
+- 全程 `ruff check` 零违规验证
+
 ## [0.9.1] - 2026-05-31
 
 ### Added
