@@ -1,0 +1,23 @@
+# 新四维评分配置 — 对齐 cv_enhanced_v2_new4dim.yaml
+# 维度: position / medium / angle / state
+# 权重和 score_map 为占位值，待 benchmark 实证后由 backend-dev 调优
+# 约束: weight_medium > 1 - threshold，确保盲道/绿化违规单独否决
+
+composition_gate: false   # 构图维度已删除，不再门控
+
+score_map:
+  position:  {"[合规]": 1.0, "[基本合规-压线]": 0.6, "[不合规-超界]": 0.0, "[无参照]": 0.5}
+  medium:    {"[合规]": 1.0, "[不合规-盲道]": 0.0, "[不合规-绿化]": 0.0, "[不合规-禁停区]": 0.0}
+  angle:     {"[合规]": 1.0, "[不合规-斜停]": 0.0, "[N/A]": null}
+  state:     {"[正立]": 1.0, "[倒伏]": 0.0}
+
+threshold: 0.45
+
+weights:
+  position: 0.30
+  medium:   0.35
+  angle:    0.20
+  state:    0.15
+
+# 角度 N/A 特殊处理: 该维度退出加权，剩余维度权重归一化
+# 实现方式: score() 检测到 angle_score 为 None 时，排除 angle 后重新归一化权重再加权求和
