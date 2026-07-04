@@ -372,7 +372,20 @@ class YOLOv8SegInference:
                 }
             )
 
-        return {"status": "success", "detections": detections, "mask_base64": mask_base64}
+        # 生成 Electric bike 二值 mask（白色=车像素，黑色=背景，PNG base64）
+        bike_mask_base64 = ""
+        for obj in result["objects"]:
+            if obj["label"] == "Electric bike":
+                mask = obj["mask"]
+                bike_binary = np.zeros((H, W), dtype=np.uint8)
+                bike_binary[mask] = 255
+                bike_pil = Image.fromarray(bike_binary, mode="L")
+                bike_buf = io.BytesIO()
+                bike_pil.save(bike_buf, format="PNG")
+                bike_mask_base64 = base64.b64encode(bike_buf.getvalue()).decode("utf-8")
+                break
+
+        return {"status": "success", "detections": detections, "mask_base64": mask_base64, "bike_mask_base64": bike_mask_base64}
 
     def run(self, img_path: str, score_thr: float = 0.5) -> Dict:
         """

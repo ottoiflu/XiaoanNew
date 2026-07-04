@@ -1,13 +1,10 @@
 """
-加权评判引擎 - 替代一票否决制的得分评判系统
+加权评判引擎 - 新四维版 (position/medium/angle/state)
 
-提供可配置的维度权重、分数映射和阈值，支持 YAML 配置文件加载、
-单条评判、批量 CSV 重评估和阈值网格搜索。
-
-典型用法：
-    engine = ScoringEngine.from_yaml("configs/scoring_default.yaml")
-    result = engine.score("[合规]", "[合规]", "[基本合规-压线]", "[合规]")
-    print(result.is_compliant, result.final_score)
+变更：
+- 维度从 composition/angle/distance/context 换为 position/medium/angle/state
+- 删除构图门控 (composition_gate)
+- angle=[N/A] 时不参与加权，剩余维度权重归一化重算
 """
 
 from __future__ import annotations
@@ -31,7 +28,6 @@ class ScoringResult:
     final_score: float
     dimension_scores: dict[str, float]
     raw_statuses: dict[str, str]
-    gated: bool = False  # 构图门控是否触发
 
 
 @dataclass
@@ -41,40 +37,40 @@ class ScoringConfig:
     score_map: dict[str, dict[str, float]]
     weights: dict[str, float]
     threshold: float
-    composition_gate: bool = True
 
     @classmethod
     def default(cls) -> ScoringConfig:
         return cls(
             score_map={
-                "composition": {
+                "position": {
                     "[合规]": 1.0,
-                    "[基本合规]": 0.7,
-                    "[不合规-构图]": 0.0,
-                    "[不合规-无参照]": 0.0,
+                    "[基本合规-压线]": 0.6,
+                    "[不合规-超界]": 0.0,
+                    "[无参照]": 0.5,
+                },
+                "medium": {
+                    "[合规]": 1.0,
+                    "[不合规-盲道]": 0.0,
+                    "[不合规-绿化]": 0.0,
+                    "[不合规-禁停区]": 0.0,
                 },
                 "angle": {
                     "[合规]": 1.0,
-                    "[不合规-角度]": 0.0,
+                    "[不合规-斜停]": 0.0,
+                    "[N/A]": None,
                 },
-                "distance": {
-                    "[完全合规]": 1.0,
-                    "[基本合规-压线]": 0.0,
-                    "[不合规-超界]": 0.0,
-                },
-                "context": {
-                    "[合规]": 1.0,
-                    "[不合规-环境]": 0.0,
+                "state": {
+                    "[正立]": 1.0,
+                    "[倒伏]": 0.0,
                 },
             },
             weights={
-                "composition": 0.05,
-                "angle": 0.25,
-                "distance": 0.40,
-                "context": 0.30,
+                "position": 0.30,
+                "medium": 0.35,
+                "angle": 0.20,
+                "state": 0.15,
             },
-            threshold=0.60,
-            composition_gate=True,
+            threshold=0.45,
         )
 
     @classmethod
@@ -87,7 +83,6 @@ class ScoringConfig:
             score_map=data["score_map"],
             weights=data["weights"],
             threshold=data["threshold"],
-            composition_gate=data.get("composition_gate", True),
         )
 
     def to_yaml(self, path: str) -> None:
@@ -97,7 +92,6 @@ class ScoringConfig:
             "score_map": self.score_map,
             "weights": self.weights,
             "threshold": self.threshold,
-            "composition_gate": self.composition_gate,
         }
         with open(path, "w", encoding="utf-8") as f:
             yaml.dump(data, f, allow_unicode=True, default_flow_style=False)
@@ -107,9 +101,9 @@ class ScoringConfig:
 
 
 class ScoringEngine:
-    """加权评判引擎"""
+    """加权评判引擎 (新四维)"""
 
-    DIMENSIONS = ("composition", "angle", "distance", "context")
+    DIMENSIONS = ("position", "medium", "angle", "state")
 
     def __init__(self, config: Optional[ScoringConfig] = None):
         self.config = config or ScoringConfig.default()
@@ -129,35 +123,86 @@ class ScoringEngine:
 
     def score(
         self,
-        composition: str,
+        position: str,
+        medium: str,
         angle: str,
-        distance: str,
-        context: str,
+        state: str,
     ) -> ScoringResult:
-        """对单条 VLM 输出进行加权评判"""
-        raw = {
-            "composition": composition.strip(),
-            "angle": angle.strip(),
-            "distance": distance.strip(),
-            "context": context.strip(),
+        """对新四维 VLM 输出进行加权评判
+
+        angle=[N/A] 时该维度退出，剩余维度权重归一化重算。
+        score_map 值支持 float 或 [low, high] 区间（用置信度中值插值）。
+        """
+        return self._score_with_conf(position, medium, angle, state)
+
+    def score_interp(
+        self,
+        position: str,
+        medium: str,
+        angle: str,
+        state: str,
+        position_conf: float = 0.5,
+        medium_conf: float = 0.5,
+        angle_conf: float = 0.5,
+        state_conf: float = 0.5,
+    ) -> ScoringResult:
+        """带置信度的区间插值评分
+
+        score_map 中标签的值可以是 [low, high] 区间列表，
+        最终分数 = low + conf * (high - low)。
+        兼容旧版 float 值（直接使用）。
+        """
+        confs = {
+            "position": position_conf,
+            "medium": medium_conf,
+            "angle": angle_conf,
+            "state": state_conf,
         }
+        return self._score_with_conf(position, medium, angle, state, confs)
+
+    def _score_with_conf(
+        self,
+        position: str,
+        medium: str,
+        angle: str,
+        state: str,
+        confs: Optional[dict[str, float]] = None,
+    ) -> ScoringResult:
+        raw = {
+            "position": position.strip(),
+            "medium": medium.strip(),
+            "angle": angle.strip(),
+            "state": state.strip(),
+        }
+
+        # 计算各维度分数，None 表示跳过
         dim_scores = {}
+        active_weights = {}
         for dim in self.DIMENSIONS:
             status = raw[dim]
             mapping = self.config.score_map[dim]
-            dim_scores[dim] = mapping.get(status, self._fuzzy_match(status, mapping))
+            s = mapping.get(status, self._fuzzy_match(status, mapping))
+            if s is None:
+                continue  # angle=[N/A] 跳过
+            # 区间映射: [low, high] 用置信度中值插值，纯 float 直接使用
+            if isinstance(s, (list, tuple)):
+                low, high = s[0], s[1]
+                conf = confs.get(dim, 0.5) if confs else 0.5
+                s = low + conf * (high - low)
+            dim_scores[dim] = s
+            active_weights[dim] = self.config.weights[dim]
 
-        # 构图门控：图像质量不合格则直接否决
-        if self.config.composition_gate and dim_scores["composition"] == 0.0:
+        # 归一化：active_weights 重新加权到总和 1.0
+        w_sum = sum(active_weights.values())
+        if w_sum == 0:
             return ScoringResult(
                 is_compliant=False,
                 final_score=0.0,
                 dimension_scores=dim_scores,
                 raw_statuses=raw,
-                gated=True,
             )
 
-        final = sum(self.config.weights[d] * dim_scores[d] for d in self.DIMENSIONS)
+        final = sum(dim_scores[d] * active_weights[d] / w_sum for d in dim_scores)
         return ScoringResult(
             is_compliant=final >= self.config.threshold,
             final_score=round(final, 4),
@@ -167,13 +212,13 @@ class ScoringEngine:
 
     def judge(
         self,
-        composition: str,
+        position: str,
+        medium: str,
         angle: str,
-        distance: str,
-        context: str,
+        state: str,
     ) -> str:
-        """返回 'yes' 或 'no'，供脚本直接替换一票否决逻辑"""
-        return "yes" if self.score(composition, angle, distance, context).is_compliant else "no"
+        """返回 'yes' 或 'no'"""
+        return "yes" if self.score(position, medium, angle, state).is_compliant else "no"
 
     # ── 一票否决（保留兼容） ──
 
@@ -184,7 +229,7 @@ class ScoringEngine:
         distance: str,
         context: str,
     ) -> str:
-        """原始一票否决逻辑"""
+        """原始一票否决逻辑（旧四维兼容，仅供旧脚本使用）"""
         if "不合规" in composition:
             return "no"
         if "不合规" in angle:
@@ -201,21 +246,18 @@ class ScoringEngine:
         self,
         csv_path: str,
         gt_col: str = "ground_truth",
-        comp_col: str = "composition",
-        angle_col: str = "angle",
-        dist_col: str = "distance",
-        ctx_col: str = "context",
+        pos_col: str = "position",
+        med_col: str = "medium",
+        ang_col: str = "angle",
+        state_col: str = "state",
     ) -> dict:
-        """从已有 CSV 结果文件批量重评估，返回指标字典"""
+        """从已有 CSV 结果文件批量重评估"""
         rows = self._load_csv(csv_path)
         tp = tn = fp = fn = 0
         for row in rows:
             gt = row[gt_col].strip().lower()
-            if gt in ("yes", "合规"):
-                gt = "yes"
-            else:
-                gt = "no"
-            pred = self.judge(row[comp_col], row[angle_col], row[dist_col], row[ctx_col])
+            gt = "yes" if gt in ("yes", "合规") else "no"
+            pred = self.judge(row[pos_col], row[med_col], row[ang_col], row[state_col])
             if gt == "yes":
                 if pred == "yes":
                     tp += 1
@@ -237,31 +279,26 @@ class ScoringEngine:
         stop: float = 1.01,
         step: float = 0.05,
         gt_col: str = "ground_truth",
-        comp_col: str = "composition",
-        angle_col: str = "angle",
-        dist_col: str = "distance",
-        ctx_col: str = "context",
+        pos_col: str = "position",
+        med_col: str = "medium",
+        ang_col: str = "angle",
+        state_col: str = "state",
     ) -> list[dict]:
-        """遍历阈值区间，返回每个阈值下的指标"""
+        """遍历阈值区间"""
         rows = self._load_csv(csv_path)
-
-        # 预计算所有样本的 final_score 和 gt
         scored = []
         for row in rows:
             gt = row[gt_col].strip().lower()
             gt = "yes" if gt in ("yes", "合规") else "no"
-            result = self.score(row[comp_col], row[angle_col], row[dist_col], row[ctx_col])
-            scored.append((gt, result.final_score, result.gated))
+            result = self.score(row[pos_col], row[med_col], row[ang_col], row[state_col])
+            scored.append((gt, result.final_score))
 
         results = []
         threshold = start
         while threshold <= stop:
             tp = tn = fp = fn = 0
-            for gt, fs, gated in scored:
-                if gated:
-                    pred = "no"
-                else:
-                    pred = "yes" if fs >= threshold else "no"
+            for gt, fs in scored:
+                pred = "yes" if fs >= threshold else "no"
                 if gt == "yes":
                     if pred == "yes":
                         tp += 1
@@ -287,33 +324,20 @@ class ScoringEngine:
         threshold_range: tuple = (0.3, 0.95, 0.05),
         optimize: str = "f1",
         gt_col: str = "ground_truth",
-        comp_col: str = "composition",
-        angle_col: str = "angle",
-        dist_col: str = "distance",
-        ctx_col: str = "context",
+        pos_col: str = "position",
+        med_col: str = "medium",
+        ang_col: str = "angle",
+        state_col: str = "state",
     ) -> dict:
-        """网格搜索最优权重和阈值组合
-
-        Args:
-            weight_grid: 各维度候选权重列表，如
-                {"angle": [0.3, 0.35, 0.4], "distance": [0.3, 0.35, 0.4]}
-                未指定的维度使用剩余权重均分
-            threshold_range: (start, stop, step)
-            optimize: 优化目标 ("f1", "acc", "pre", "rec")
-        Returns:
-            最优参数字典，含 weights / threshold / metrics
-        """
+        """网格搜索最优权重和阈值"""
         rows = self._load_csv(csv_path)
-
         if weight_grid is None:
             weight_grid = {
-                "composition": [0.05, 0.10, 0.15],
-                "angle": [0.25, 0.30, 0.35, 0.40],
-                "distance": [0.25, 0.30, 0.35, 0.40],
-                "context": [0.15, 0.20, 0.25],
+                "position": [0.20, 0.30, 0.40, 0.50],
+                "medium": [0.25, 0.35, 0.45],
+                "angle": [0.10, 0.20, 0.30],
+                "state": [0.05, 0.10, 0.15],
             }
-
-        # 生成所有权重组合（权重总和必须为 1.0）
         dims = list(weight_grid.keys())
         combos = list(itertools.product(*[weight_grid[d] for d in dims]))
         valid_combos = [(c, dict(zip(dims, c))) for c in combos if abs(sum(c) - 1.0) < 0.01]
@@ -335,13 +359,13 @@ class ScoringEngine:
             for row in rows:
                 gt = row[gt_col].strip().lower()
                 gt = "yes" if gt in ("yes", "合规") else "no"
-                result = test_engine.score(row[comp_col], row[angle_col], row[dist_col], row[ctx_col])
-                scored.append((gt, result.final_score, result.gated))
+                result = test_engine.score(row[pos_col], row[med_col], row[ang_col], row[state_col])
+                scored.append((gt, result.final_score))
 
             for threshold in thresholds:
                 tp = tn = fp = fn = 0
-                for gt, fs, gated in scored:
-                    pred = "no" if gated else ("yes" if fs >= threshold else "no")
+                for gt, fs in scored:
+                    pred = "yes" if fs >= threshold else "no"
                     if gt == "yes":
                         if pred == "yes":
                             tp += 1
@@ -352,7 +376,6 @@ class ScoringEngine:
                             tn += 1
                         else:
                             fp += 1
-
                 metrics = self._calc_metrics(tp, tn, fp, fn)
                 val = metrics[optimize]
                 if val > best["metric"]:
@@ -363,14 +386,12 @@ class ScoringEngine:
                         "threshold": threshold,
                         "metrics": metrics,
                     }
-
         return best
 
     # ── 工具方法 ──
 
     @staticmethod
     def _fuzzy_match(status: str, mapping: dict) -> float:
-        """模糊匹配状态标签，容忍格式差异"""
         s = status.strip().replace("（", "(").replace("）", ")")
         for key, val in mapping.items():
             k = key.strip().replace("（", "(").replace("）", ")")
@@ -393,8 +414,6 @@ class ScoringEngine:
     def _calc_metrics(tp: int, tn: int, fp: int, fn: int) -> dict:
         return BinaryMetrics.from_confusion_matrix(tp, tn, fp, fn).to_dict()
 
-    # ── 工厂方法 ──
-
     @classmethod
     def from_yaml(cls, path: str) -> ScoringEngine:
         return cls(ScoringConfig.from_yaml(path))
@@ -404,24 +423,20 @@ class ScoringEngine:
 
 
 def main():
-    """命令行批量重评估和阈值搜索"""
     import argparse
 
-    parser = argparse.ArgumentParser(description="加权评判引擎 - 批量重评估工具")
+    parser = argparse.ArgumentParser(description="加权评判引擎 - 新四维版")
     sub = parser.add_subparsers(dest="command")
 
-    # 重评估子命令
     eval_p = sub.add_parser("evaluate", help="用加权评判重新评估已有 CSV 结果")
     eval_p.add_argument("csv", help="结果 CSV 文件路径")
     eval_p.add_argument("-c", "--config", help="评判配置 YAML 路径")
     eval_p.add_argument("-t", "--threshold", type=float, help="覆盖默认阈值")
 
-    # 阈值扫描子命令
     sweep_p = sub.add_parser("sweep", help="扫描阈值区间寻找最优点")
     sweep_p.add_argument("csv", help="结果 CSV 文件路径")
     sweep_p.add_argument("-c", "--config", help="评判配置 YAML 路径")
 
-    # 网格搜索子命令
     grid_p = sub.add_parser("grid", help="网格搜索最优权重和阈值")
     grid_p.add_argument("csv", help="结果 CSV 文件路径")
     grid_p.add_argument("-c", "--config", help="评判配置 YAML 路径")
@@ -429,25 +444,28 @@ def main():
 
     args = parser.parse_args()
 
+    def _print_metrics(metrics: dict, threshold: float) -> None:
+        print(f"\n{'=' * 20} 加权评判结果 (阈值={threshold}) {'=' * 20}")
+        print(f"准确率: {metrics['acc']:.2%}  精确率: {metrics['pre']:.2%}")
+        print(f"召回率: {metrics['rec']:.2%}  F1: {metrics['f1']:.4f}")
+        print(f"TP={metrics['tp']}  TN={metrics['tn']}  FP={metrics['fp']}  FN={metrics['fn']}")
+        print("=" * 55)
+
     if args.command == "evaluate":
         engine = ScoringEngine.from_yaml(args.config) if args.config else ScoringEngine()
         if args.threshold is not None:
             engine.config.threshold = args.threshold
         metrics = engine.batch_evaluate(args.csv)
         _print_metrics(metrics, engine.config.threshold)
-
     elif args.command == "sweep":
         engine = ScoringEngine.from_yaml(args.config) if args.config else ScoringEngine()
         results = engine.sweep_threshold(args.csv)
         print(f"\n{'阈值':>6} | {'F1':>6} | {'Acc':>6} | {'Pre':>6} | {'Rec':>6} | {'FP':>4} | {'FN':>4}")
         print("-" * 52)
         for r in results:
-            print(
-                f"{r['threshold']:6.2f} | {r['f1']:6.4f} | {r['acc']:6.4f} | {r['pre']:6.4f} | {r['rec']:6.4f} | {r['fp']:4d} | {r['fn']:4d}"
-            )
+            print(f"{r['threshold']:6.2f} | {r['f1']:6.4f} | {r['acc']:6.4f} | {r['pre']:6.4f} | {r['rec']:6.4f} | {r['fp']:4d} | {r['fn']:4d}")
         best = max(results, key=lambda x: x["f1"])
         print(f"\n最优阈值: {best['threshold']:.2f} -> F1={best['f1']:.4f}, Acc={best['acc']:.4f}")
-
     elif args.command == "grid":
         engine = ScoringEngine.from_yaml(args.config) if args.config else ScoringEngine()
         best = engine.grid_search(args.csv, optimize=args.optimize)
@@ -457,14 +475,6 @@ def main():
         _print_metrics(best["metrics"], best["threshold"])
     else:
         parser.print_help()
-
-
-def _print_metrics(metrics: dict, threshold: float) -> None:
-    print(f"\n{'=' * 20} 加权评判结果 (阈值={threshold}) {'=' * 20}")
-    print(f"准确率: {metrics['acc']:.2%}  精确率: {metrics['pre']:.2%}")
-    print(f"召回率: {metrics['rec']:.2%}  F1: {metrics['f1']:.4f}")
-    print(f"TP={metrics['tp']}  TN={metrics['tn']}  FP={metrics['fp']}  FN={metrics['fn']}")
-    print("=" * 55)
 
 
 if __name__ == "__main__":

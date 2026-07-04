@@ -1,6 +1,6 @@
 """VLM 响应解析与标签标准化
 
-统一各脚本中分散的 VLM JSON 解析和标签归一化逻辑。
+新四维：position / medium / angle / state
 """
 
 from __future__ import annotations
@@ -21,7 +21,6 @@ def normalize_label(label: str) -> str:
     if not label:
         return ""
     s = str(label).strip().lower()
-    # 先匹配否定关键词（更具体），避免 '不合规' 被 '合规' 误匹配
     if any(k in s for k in _NO_KEYWORDS):
         return "no"
     if any(k in s for k in _YES_KEYWORDS):
@@ -34,12 +33,16 @@ def normalize_label(label: str) -> str:
 
 @dataclass
 class VLMResult:
-    """VLM 四维度解析结果"""
+    """VLM 新四维解析结果：position / medium / angle / state + 置信度"""
 
-    composition: str = ""
+    position: str = ""
+    medium: str = ""
     angle: str = ""
-    distance: str = ""
-    context: str = ""
+    state: str = ""
+    position_confidence: float = 0.5
+    medium_confidence: float = 0.5
+    angle_confidence: float = 0.5
+    state_confidence: float = 0.5
     reason: str = ""
     raw_json: Optional[dict] = field(default=None, repr=False)
     parse_error: str = ""
@@ -50,16 +53,26 @@ class VLMResult:
 
     @property
     def statuses(self) -> tuple[str, str, str, str]:
-        return (self.composition, self.angle, self.distance, self.context)
+        return (self.position, self.medium, self.angle, self.state)
+
+    @property
+    def confidences(self) -> dict[str, float]:
+        return {
+            "position": self.position_confidence,
+            "medium": self.medium_confidence,
+            "angle": self.angle_confidence,
+            "state": self.state_confidence,
+        }
 
 
 # ──────────────────────────── 解析函数 ────────────────────────────
 
 
 def parse_vlm_response(response_text: str) -> VLMResult:
-    """从 VLM 文本响应中提取结构化四维度状态
+    """从 VLM 文本响应中提取新四维状态
 
-    仅负责提取，不做合规判定（判定逻辑由 ScoringEngine 处理）。
+    新四维：position / medium / angle / state
+    对应 JSON 字段：position_status / medium_status / angle_status / state_status
     """
     try:
         json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
@@ -70,10 +83,14 @@ def parse_vlm_response(response_text: str) -> VLMResult:
         scores = data.get("scores", {})
 
         return VLMResult(
-            composition=str(scores.get("composition_status", "")).strip(),
+            position=str(scores.get("position_status", "")).strip(),
+            medium=str(scores.get("medium_status", "")).strip(),
             angle=str(scores.get("angle_status", "")).strip(),
-            distance=str(scores.get("distance_status", "")).strip(),
-            context=str(scores.get("context_status", "")).strip(),
+            state=str(scores.get("state_status", "")).strip(),
+            position_confidence=float(scores.get("position_confidence", 0.5)),
+            medium_confidence=float(scores.get("medium_confidence", 0.5)),
+            angle_confidence=float(scores.get("angle_confidence", 0.5)),
+            state_confidence=float(scores.get("state_confidence", 0.5)),
             reason=str(data.get("step_by_step_analysis", "")),
             raw_json=data,
         )

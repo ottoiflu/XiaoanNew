@@ -38,9 +38,12 @@ from werkzeug.utils import secure_filename
 # 导入配置模块
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from modules.config.settings import settings
+from modules.cv.angle_inference import analyze_angle
+from modules.cv.blind_lane_check import check_blind_lane
 from modules.cv.image_utils import (
     calculate_iou_and_overlap,
     combine_masks,
+    compress_image,
     draw_wireframe_visual,
     encode_image_to_base64,
 )
@@ -118,9 +121,9 @@ _scoring_engine = None
 try:
     if settings.VLM_API_KEY:
         vlm_client = OpenAI(base_url=settings.API_BASE_URL, api_key=settings.VLM_API_KEY)
-        scoring_config_path = os.path.join(BASE_DIR, "assets", "configs", "scoring_optimized_cv_p4.yaml")
+        scoring_config_path = os.path.join(BASE_DIR, "assets", "configs", "scoring_new4d_gs_best.yaml")
         _scoring_engine = ScoringEngine.from_yaml(scoring_config_path)
-        print(f"✅ VLM 合规分析客户端初始化成功，模型: {VLM_MODEL}，评分配置: scoring_optimized_cv_p4")
+        print(f"✅ VLM 合规分析客户端初始化成功，模型: {VLM_MODEL}，评分配置: scoring_new4d_gs_best")
     else:
         print("⚠️ VLM_API_KEYS 未配置，合规分析将回退到规则判断")
 except Exception as _e:
@@ -380,6 +383,7 @@ def detect_static():
 
         img_bytes = file.read()
         result = ai_engine.predict_static_json(img_bytes)
+        result["bike_mask_base64"] = result.get("bike_mask_base64", "")
 
         return jsonify({"status": "success", "data": result}), 200
 
@@ -439,6 +443,12 @@ def check_parking():
                 processed_bytes = buf.getvalue()
 
                 print(f"[预处理] 图片已裁剪: 原尺寸({w}x{h}) -> 裁剪区域 y={y1:.1f}~{y2:.1f}")
+                if compress_image:
+                    try:
+                        processed_bytes = compress_image(processed_bytes)
+                        print("[预处理] 已压缩")
+                    except Exception as comp_err:
+                        print(f"[预处理警告] 压缩失败: {comp_err}")
             else:
                 processed_bytes = img_bytes
         except Exception as crop_err:
@@ -493,14 +503,8 @@ def check_parking():
             plate_number = None
 
         if not plate_number or len(plate_number) < 3:
-            result = {
-                "is_valid": False,
-                "message": "未检测到清晰车牌，请对准车牌重拍",
-                "confidence": 0.0,
-                "plate_number": "未识别",
-            }
-            _put_cached_result(cache_key, result)
-            return jsonify(result), 200
+            plate_number = "未识别"
+            print("[车牌] 未检测到清晰车牌，使用占位符，继续 CV+VLM 合规判定")
 
         print(f"[业务逻辑] 确认车牌: {plate_number}")
 
@@ -515,6 +519,8 @@ def check_parking():
         message = ""
         vlm_analysis = None
         cv_detections = []
+        cv_angle_result = {"cv_judgment": "[N/A]", "curb_fallback": False, "angle_to_bike": None, "disambiguation": "", "n_line_types": 0}
+        blind_result = {"iou": 0.0, "depth_diff": None, "override": False, "reason": ""}
 
         if seg_result:
             raw_img = seg_result["image_raw"]
@@ -573,6 +579,15 @@ def check_parking():
                     geo["status_inference"] = "Likely Out of Bounds"
 
             # -------------------------------------------------
+            # 步骤 B-2: CV 角度分析（独立于 VLM，纯几何）
+            # -------------------------------------------------
+            if main_bike_mask is not None and analyze_angle:
+                try:
+                    cv_angle_result = analyze_angle(objects, main_bike_mask, W, H)
+                except Exception as e:
+                    print(f"[CV角度] 异常: {e}")
+
+            # -------------------------------------------------
             # 步骤 C: CV+VLM 联合合规判断
             # -------------------------------------------------
             if vlm_client and _scoring_engine:
@@ -585,7 +600,12 @@ def check_parking():
                         "image_size": [H, W],
                         "detected_objects": cv_detections,
                         "class_summary": class_counts,
-                        "geometry_analysis": geo,
+                        "geometry_analysis": {
+                            **geo,
+                            "cv_angle_judgment": cv_angle_result.get("cv_judgment", "[N/A]"),
+                            "cv_disambiguation": cv_angle_result.get("disambiguation", ""),
+                            "cv_curb_fallback": cv_angle_result.get("curb_fallback", False),
+                        },
                     }
                     structured_info = json.dumps(detection_info, ensure_ascii=False, indent=2)
 
@@ -616,15 +636,32 @@ def check_parking():
                     print(f"[VLM] 原始响应: {vlm_text}")
 
                     vlm_result = parse_vlm_response(vlm_text)
+
+                    # -------------------------------------------------
+                    # 盲道检测 override（VLM 响应后、scoring 前）
+                    # -------------------------------------------------
+                    if main_bike_mask is not None and check_blind_lane:
+                        try:
+                            pil_image_for_depth = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+                            blind_result = check_blind_lane(main_bike_mask, objects, pil_image_for_depth)
+                        except Exception as e:
+                            print(f"[盲道检测] 异常: {e}")
+                    if blind_result["override"]:
+                        vlm_result.medium = "[不合规-盲道]"
+
                     if vlm_result.is_valid:
                         score_result = _scoring_engine.score(*vlm_result.statuses)
                         is_valid_parking = score_result.is_compliant
                         confidence = score_result.final_score
                         vlm_analysis = {
-                            "composition": vlm_result.composition,
+                            "position": vlm_result.position,
+                            "medium": vlm_result.medium,
                             "angle": vlm_result.angle,
-                            "distance": vlm_result.distance,
-                            "context": vlm_result.context,
+                            "state": vlm_result.state,
+                            "position_confidence": vlm_result.position_confidence,
+                            "medium_confidence": vlm_result.medium_confidence,
+                            "angle_confidence": vlm_result.angle_confidence,
+                            "state_confidence": vlm_result.state_confidence,
                             "final_score": score_result.final_score,
                             "dimension_scores": score_result.dimension_scores,
                             "reason": str(vlm_result.reason)[:500],
@@ -673,6 +710,20 @@ def check_parking():
         }
         if vlm_analysis:
             result_data["vlm_analysis"] = vlm_analysis
+        result_data["cv_analysis"] = {
+            "angle_judgment": cv_angle_result.get("cv_judgment", "[N/A]"),
+            "angle_to_bike": cv_angle_result.get("angle_to_bike"),
+            "disambiguation": cv_angle_result.get("disambiguation", ""),
+            "curb_fallback": cv_angle_result.get("curb_fallback", False),
+            "n_line_types": cv_angle_result.get("n_line_types", 0),
+            "blind_lane": {
+                "iou": blind_result.get("iou", 0.0),
+                "depth_diff": blind_result.get("depth_diff"),
+                "override": blind_result.get("override", False),
+                "reason": blind_result.get("reason", ""),
+            },
+        }
+        result_data["image_compressed"] = True
 
         _put_cached_result(cache_key, result_data)
 
@@ -680,7 +731,7 @@ def check_parking():
         evidence_dir = os.path.join(UPLOAD_ROOT, "evidence", status_dir)
         os.makedirs(evidence_dir, exist_ok=True)
 
-        safe_plate = secure_filename(plate_number)
+        safe_plate = secure_filename(plate_number) or "unknown"
         filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{safe_plate}.jpg"
 
         with open(os.path.join(evidence_dir, filename), "wb") as f:

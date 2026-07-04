@@ -230,10 +230,26 @@ class MaskRCNNInference:
             overlay_img.save(buffer, format="PNG")
             mask_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
+        # 生成 Electric bike 二值 mask（白色=车像素，黑色=背景，PNG base64）
+        bike_mask_base64 = ""
+        if len(inds) > 0:
+            for i in range(len(inds)):
+                label_idx = int(labels[i].item())
+                if label_idx == 1:  # Electric bike
+                    m = masks[i]
+                    bike_binary = np.zeros((height, width), dtype=np.uint8)
+                    bike_binary[m] = 255
+                    bike_pil = Image.fromarray(bike_binary, mode="L")
+                    bike_buf = io.BytesIO()
+                    bike_pil.save(bike_buf, format="PNG")
+                    bike_mask_base64 = base64.b64encode(bike_buf.getvalue()).decode("utf-8")
+                    break
+
         return {
             "status": "success",
             "detections": detections,  # 结构化数据，用于后端计算
             "mask_base64": mask_base64,  # 增强后的可视化图片，用于前端叠加展示
+            "bike_mask_base64": bike_mask_base64,  # Electric bike 二值 mask base64
         }
 
     def get_geometry_lines(self, image_bytes):

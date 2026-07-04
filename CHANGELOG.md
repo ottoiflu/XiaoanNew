@@ -4,7 +4,31 @@
 
 ## [Unreleased]
 
+### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
+- `check_parking` 接口集成 CV 增强 pipeline：
+  - 预处理阶段图片压缩（`compress_image`），减少 VLM 传输量
+  - YOLO 后处理阶段 CV 角度分析（`analyze_angle`）：PCA 主轴计算、标线聚类、路缘消歧/降级，输出 cv_judgment/angle_to_bike/disambiguation/curb_fallback/n_line_types
+  - VLM 后处理阶段盲道检测 override（`check_blind_lane`）：2D IoU + Depth Anything 深度验证，触发时将 VLM medium 维度覆盖为 `[不合规-盲道]`
+  - VLM prompt 注入 CV 数值：geometry_analysis 新增 cv_angle_judgment/cv_disambiguation/cv_curb_fallback
+  - 响应体扩展：新增 cv_analysis（含 blind_lane）和 image_compressed 字段
+- 新增模块依赖：modules/cv/angle_inference.py、modules/cv/blind_lane_check.py、modules/cv/image_utils.compress_image
+
+### Changed
+- `check_parking` 无车牌时不阻塞判定：当 client_plate 和 server_plate 均为空时，`plate_number` 设为 `"未识别"` 占位，继续执行 CV+VLM 合规判定，`is_valid` 由检测结果决定而非硬编码 False。车牌一致性验证（不符 return）保留为安全特性。
+
+### Changed
+- `app.py` check_parking 函数 6 处增量改动，所有 CV 增强均有 try/except 保护，失败回退原流程
+
+### Fixed
+- `app.py` vlm_analysis 字典字段名与 VLMResult 不匹配的严重 bug：原使用旧四维字段名（composition/distance/context）导致每个 VLM 请求触发 AttributeError，VLM 分析全部回退规则判断。已修正为 parser.py 新四维字段（position/medium/angle/state + confidence 字段）
+- `app.py` 加载的评分配置文件为旧四维版（scoring_optimized_cv_p4.yaml），字段名 composition/distance/context 与新 ScoringEngine.DIMENSIONS（position/medium/angle/state）不匹配，导致 ScoringEngine 初始化失败、VLM 流程全局跳过。已改为 scoring_new4d_gs_best.yaml
+- 模块导入从 try/except ImportError 降级改为直接导入（angle_inference、blind_lane_check、compress_image 均已就绪）
+
 ### Docs
+
+
+
 - `docs/IDEA.md` §3 整章重写：旧四维（构图/角度/距离/环境）→ 新四维（停放位置/禁停介质/摆放角度/车辆状态），新增 `[无参照]`/`[N/A]` 标签机制、禁停介质视觉判据约束、纯加权无否决分支聚合逻辑（#78c0607, #bb802d9, #40e8247）
 - 同步修正 `docs/IDEA.md` §1 核心哲学中的过时维度名引用
 - 同步修正 `docs/API.md` 评分表权重与阈值（25%→20%、40%→45%、0.60→0.35，与 scoring_optimized_cv_p4.yaml 一致）
@@ -28,6 +52,7 @@
 ## [0.9.1] - 2026-05-31
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - `app.py` 新增 `ThreadPoolExecutor` 并行化架构：OCR（远程 I/O）与 YOLO（本地 GPU）并行提交执行，消除两者间的串行等待
   - 新增 `_run_yolo()` 封装函数，供线程池调度
   - OCR 设 15s 超时保护，避免远程 API 阻塞主流程
@@ -50,6 +75,7 @@
 ## [0.9.0] - 2026-04-28
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - `app.py` 新增 CV+VLM 联合合规判断，替代原有的简单规则判断
   - 新增 `vlm_client` 和 `_scoring_engine` 全局实例，启动时初始化
   - 新增 `_rule_based_judgment()` 辅助函数，作为 VLM 不可用时的降级方案
@@ -75,6 +101,7 @@
 ## [0.8.1] - 2025-03-28
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 实验完备性审计：系统性检查 28 组实验的对称覆盖
 - 6 组缺失对比实验补入批量运行器矩阵（实验总数 24→30）
   - vlm_p7_veto/weighted, vlm_p4_3_veto/opt_weighted, vlm/cv_p4_opt_weighted
@@ -91,6 +118,7 @@
 ## [0.8.0] - 2025-03-28
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 优化版批量实验运行器 `scripts/run_contrast_batch_v2.py`，三层缓存架构：
   - YOLO 推理预计算：所有 CV 实验共享一次分割推理
   - VLM 调用去重：相同 (mode, prompt_id) 组条件下只调用一次 VLM
@@ -107,6 +135,7 @@
 ## [0.7.0] - 2025-03-28
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 提示词迭代版本：cv_enhanced_p4_1/2/3.yaml, standard_p4_1/2.yaml
 - Phase 3 误判归因分析与三轮消融实验结果写入 EXPERIMENT_REPORT.md
 - 实验批次脚本新增 Group F/G/H (p4.1~p4.3) 共 10 个实验配置
@@ -128,6 +157,7 @@
 ## [0.6.0] - 2025-03-28
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 实验可视化图表（4 张）：F1 对比、PR 分布、p4 四维指标、混淆矩阵
 - 阶段性实验报告 `outputs/contrast_experiments/EXPERIMENT_REPORT.md`
 
@@ -139,6 +169,7 @@
 ## [0.5.0] - 2026-03-29
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 批量对比实验运行器 `scripts/run_contrast_batch.py`，支持 18 组实验矩阵
   - 纯 VLM / VLM+CV 两种工作流模式
   - 一票否决 / 加权评分两种评判方式
@@ -163,6 +194,7 @@
 - 新增 render_mask_image、merge_class_masks、process_single_class 等函数
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 为单车点云新增 PCA 方向分析功能 (scripts/depth_pointcloud_demo.py)
   - compute_pca: 对点云执行 PCA 分解，输出质心、特征值、特征向量
   - create_pca_arrows: 生成三轴方向 LineSet（红/绿/蓝对应 PC1/PC2/PC3）
@@ -181,6 +213,7 @@
 ## [2.2.0] - 2026-03-27
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 新增电动车掩膜深度估计与点云可视化展示脚本 (scripts/depth_pointcloud_demo.py)
   - 同一张图片生成 5 个输出：原图、分割图、深度图、单车点云、全场景点云
   - 调用现有 YOLOv8-Seg 模型检测电动车并提取掩膜
@@ -217,6 +250,7 @@
 ## [2.1.2] - 2026-03-24
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 新增 tests/test_inprocess_cli.py: 进程内 CLI 入口覆盖测试（14 tests）
   - scoring.py main() 的 evaluate / sweep / grid / 无子命令四个分支
   - scoring.py batch_evaluate() 的 fn / fp 分支覆盖
@@ -243,6 +277,7 @@
 ## [2.1.1] - 2026-03-24
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 新增 tests/test_flask_api.py: Flask API 端点集成测试（20 tests）
   - 覆盖全部 5 个 API 端点（health / upload / detect / detect_static / check_parking）
   - 包含路径遍历安全测试、模型未加载异常路径、OCR 故障降级等场景
@@ -263,6 +298,7 @@
 ## [2.1.0] - 2026-03-24
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 新增 modules/vlm/retry.py: 基于 tenacity 的 API 调用重试机制
   - 对 APITimeoutError / APIConnectionError / RateLimitError 自动指数退避重试（最多 3 次, 2s -> 4s -> 8s）
   - 不可恢复异常（认证失败等）立即抛出，不浪费重试次数
@@ -285,6 +321,7 @@
 ## [2.0.3] - 2026-03-24
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 新增 pytest 单元测试套件（250 tests），覆盖全部 9 个核心模块
 - 新增 tests/conftest.py 共享 fixtures（图片、掩码、标签目录、评分配置等）
 - 新增 tests/test_network_resilience.py 网络异常 mock 测试（38 tests）：
@@ -345,6 +382,7 @@
 ## [1.6.1] - 2026-03-24
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - pyproject.toml 新增 ruff 配置（lint + format），替代 black/isort
 - ruff 加入 dev 依赖
 
@@ -362,6 +400,7 @@
 ## [1.6.0] - 2026-03-24
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - utils/vlm_parser.py: VLM 响应解析与标签标准化模块
   - normalize_label() 统一标签归一化（合并原先 3 处重复实现）
   - VLMResult 数据类，结构化承载四维度解析结果
@@ -409,6 +448,7 @@
 ## [1.5.0] - 2026-03-24
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - utils/scoring.py 加权评判引擎模块
   - ScoringConfig / ScoringResult 数据类
   - ScoringEngine：score() 单条评判、batch_evaluate() 批量重评估
@@ -437,6 +477,7 @@
 ## [1.4.0] - 2026-03-24
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 评估标准文档 docs/idea.md，定义四维度停车合规判定规范
 - v1 优化提示词系列：standard_p6 / standard_p7 / standard_p8
 - v2 优化提示词系列：cv_enhanced_p5 / cv_enhanced_p6
@@ -462,6 +503,7 @@
 ## [1.3.0] - 2026-03-24
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 实验排行榜功能
   - 在 utils/metrics.py 中新增 update_leaderboard()，自动汇总所有实验记录
   - 按 F1 降序、Accuracy 降序排序，保留 Top 20 条记录
@@ -495,6 +537,7 @@
 
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 
 - 新增依赖管理文件
 
@@ -532,6 +575,7 @@
 ## [1.0.0] - 2026-03-24
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 新增实验配置管理系统 (`scripts/experiment_config.py`)
   - 支持从 YAML 文件加载实验配置
   - ExperimentConfig dataclass 统一管理配置参数
@@ -572,6 +616,7 @@
 ## [0.9.0] - 2026-03-24
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 新增提示词管理模块 (`scripts/prompt_manager.py`)
   - 支持从 YAML 文件加载提示词
   - 提供 `load_prompt()` 便捷函数
@@ -601,6 +646,7 @@
 ## [0.8.2] - 2026-03-24
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 创建精简测试集 (各200张随机抽样)
   - yes_val/: 正样本测试集 (从440张中抽取)
   - no_val/: 负样本测试集 (从421张中抽取)
@@ -628,6 +674,7 @@
 ## [0.8.1] - 2025-03-28
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 实验完备性审计：系统性检查 28 组实验的对称覆盖
 - 6 组缺失对比实验补入批量运行器矩阵（实验总数 24→30）
   - vlm_p7_veto/weighted, vlm_p4_3_veto/opt_weighted, vlm/cv_p4_opt_weighted
@@ -676,6 +723,7 @@
 ## [0.5.0] - 2026-03-24
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 添加数据集分析报告 docs/DATASET_ANALYSIS.md
   - 总计分析 3349 张图片
   - 发现 47.9% 重复率 (1603张)
@@ -703,6 +751,7 @@
 ## [0.3.0] - 2026-03-23
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 新增 `docs/PROJECT_STRUCTURE.md` 项目结构详细说明文档
 
 ### Changed
@@ -713,6 +762,7 @@
 ## [0.2.0] - 2026-03-23
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - API 接口详细文档
 - 模型训练指南
 - VLM 实验流程文档
@@ -721,5 +771,6 @@
 ## [0.1.0] - 2026-03-23
 
 ### Added
+- `detect_static` 接口新增 `bike_mask_base64` 字段：Electric bike 二值 mask（白色=车像素，黑色=背景），PNG base64 编码，尺寸=原图，供客户端计算与引导框的居中度
 - 创建 `.github/AGENTS.md` 项目工作指南
 - 创建 `CHANGELOG.md` 变更日志
