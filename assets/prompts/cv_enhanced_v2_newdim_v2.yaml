@@ -88,6 +88,7 @@ content: |
   1. status 字段必须从上述给定选项中精确选择，禁止自创。
   2. status 字段内禁止出现解释性文字。
   3. step_by_step_analysis 的描述必须支撑 scores 结论，特别是角度判定需说明是否采纳CV数据及原因。
+  4. adjustment_suggestion 字段：仅当任一维度不合规时输出不超过30字的中文调整建议，给出具体可操作的改善方向（如"车辆压盲道，请向左前方移动避开"）；合规时输出空字符串 ""。
 
   # Output Format (JSON)
   ```json
@@ -103,6 +104,7 @@ content: |
       "medium_status": "[合规] / [不合规-盲道] / [不合规-绿化] / [不合规-禁停区]",
       "angle_status": "[合规] / [不合规-斜停] / [N/A]",
       "state_status": "[正立] / [倒伏]"
-    }
+    },
+    "adjustment_suggestion": "违规时给出不超过30字的中文调整建议（具体改善方向，如'车辆压盲道，请向左前方移动避开'），合规时留空字符串"
   }
   ```

@@ -12,6 +12,7 @@ YOLOv8-Seg 实例分割推理模块
 - 1: Curb (马路牙子)
 - 2: parking lane (停车线)
 - 3: Tactile paving (盲道)
+- 4: Green belt (绿化带)
 
 作者: Auto-generated
 日期: 2026-01-20
@@ -39,7 +40,7 @@ class YOLOv8SegInference:
     """
 
     # 类别映射（与训练时一致）
-    CLASS_NAMES = {0: "Electric bike", 1: "Curb", 2: "parking lane", 3: "Tactile paving"}
+    CLASS_NAMES = {0: "Electric bike", 1: "Curb", 2: "parking lane", 3: "Tactile paving", 4: "Green belt"}
 
     # 类别颜色定义（RGBA）
     COLOR_MAP = {
@@ -47,9 +48,10 @@ class YOLOv8SegInference:
         1: (255, 0, 255),  # 马路牙子：紫色
         2: (255, 255, 0),  # 停车线：黄色
         3: (255, 165, 0),  # 盲道：橙色
+        4: (0, 180, 255),  # 绿化带：天蓝
     }
 
-    def __init__(self, weights_path: str, device: str = None, conf_threshold: float = 0.5):
+    def __init__(self, weights_path: str, device: str = None, conf_threshold: float = 0.35):
         """
         初始化 YOLOv8-Seg 模型
 
@@ -340,7 +342,7 @@ class YOLOv8SegInference:
         draw = ImageDraw.Draw(pil_overlay)
 
         try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
         except Exception:
             font = ImageFont.load_default()
 
@@ -351,7 +353,7 @@ class YOLOv8SegInference:
             cls_id = obj["category_id"]
             color = self.COLOR_MAP.get(cls_id, (128, 128, 128)) + (255,)
 
-            draw.rectangle(bbox, outline=color, width=4)
+            draw.rectangle(bbox, outline=color, width=2)
             draw.text((bbox[0] + 5, bbox[1] + 5), f"{label} {conf:.2f}", fill=(255, 255, 255, 255), font=font)
 
         # 编码为 Base64

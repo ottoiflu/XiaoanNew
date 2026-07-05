@@ -28,17 +28,18 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
+import numpy as np
 from flask import Flask, jsonify, request, send_file
 
 # 引入 OpenAI 客户端用于调用云端 OCR
 from openai import OpenAI
-from PIL import Image
+from PIL import Image, ImageDraw
 from werkzeug.utils import secure_filename
 
 # 导入配置模块
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from modules.config.settings import settings
-from modules.cv.angle_inference import analyze_angle
+from modules.cv.angle_inference import angle_between, analyze_angle, pca_2d_image
 from modules.cv.blind_lane_check import check_blind_lane
 from modules.cv.image_utils import (
     calculate_iou_and_overlap,
@@ -114,7 +115,7 @@ except Exception as e:
 
 # --- VLM 合规分析配置 ---
 VLM_MODEL = settings.VLM_MODEL
-VLM_PROMPT_ID = "cv_enhanced_p5"
+VLM_PROMPT_ID = "cv_enhanced_v2_newdim_v2"
 
 vlm_client = None
 _scoring_engine = None
@@ -435,7 +436,7 @@ def check_parking():
                 y1 = max(0, center_y - box_h / 2)
                 y2 = min(h, center_y + box_h / 2)
 
-                cropped_img = pil_image.crop((0, y1, w, y2))
+                cropped_img = pil_image  # 跳过裁剪，完整图给YOLO避免漏检（路缘/标线/绿化带常在边缘）
 
                 buf = io.BytesIO()
                 filt_format = pil_image.format if pil_image.format else "JPEG"
@@ -514,6 +515,7 @@ def check_parking():
         parking_lane_found = False
         curb_found = False
         tactile_paving_found = False
+        green_belt_found = False
         is_valid_parking = False
         confidence = 0.0
         message = ""
@@ -521,13 +523,19 @@ def check_parking():
         cv_detections = []
         cv_angle_result = {"cv_judgment": "[N/A]", "curb_fallback": False, "angle_to_bike": None, "disambiguation": "", "n_line_types": 0}
         blind_result = {"iou": 0.0, "depth_diff": None, "override": False, "reason": ""}
+        # 几何重叠指标默认值（seg_result 缺失时仍可安全序列化到响应）
+        geo = {
+            "overlap_with_parking_lane": 0.0,
+            "overlap_with_tactile_paving": 0.0,
+            "overlap_with_green_belt": 0.0,
+        }
 
         if seg_result:
             raw_img = seg_result["image_raw"]
             objects = seg_result["objects"]
             H, W = seg_result["image_size"]
 
-            class_counts = {"Electric bike": 0, "Curb": 0, "parking lane": 0, "Tactile paving": 0}
+            class_counts = {"Electric bike": 0, "Curb": 0, "parking lane": 0, "Tactile paving": 0, "Green belt": 0}
             # 主车选取：取「距画面中心最近」的电动车，而非置信度最高者。
             # 前端引导阶段已将目标车对中到画面中央，此处以中心距离接住该约束，
             # 避免多车场景下误选到旁边的邻车（与标注口径一致：以中心车辆为准）。
@@ -545,6 +553,8 @@ def check_parking():
                     curb_found = True
                 elif label == "Tactile paving":
                     tactile_paving_found = True
+                elif label == "Green belt":
+                    green_belt_found = True
                 if label == "Electric bike":
                     bx1, by1, bx2, by2 = obj["bbox"]
                     bcx, bcy = (bx1 + bx2) / 2.0, (by1 + by2) / 2.0
@@ -553,7 +563,7 @@ def check_parking():
                         main_bike_center_dist = center_dist
                         main_bike_mask = obj.get("mask")
 
-            print(f"[AI检测] 停车线:{parking_lane_found}, 马路牙子:{curb_found}, 盲道:{tactile_paving_found}")
+            print(f"[AI检测] 停车线:{parking_lane_found}, 马路牙子:{curb_found}, 盲道:{tactile_paving_found}, 绿化带:{green_belt_found}")
 
             # 几何关系计算
             geo = {
@@ -561,6 +571,7 @@ def check_parking():
                 "overlap_with_parking_lane": 0.0,
                 "iou_with_parking_lane": 0.0,
                 "overlap_with_tactile_paving": 0.0,
+                "overlap_with_green_belt": 0.0,
                 "status_inference": "unknown",
             }
             if main_bike_mask is not None:
@@ -573,6 +584,10 @@ def check_parking():
                 if tactile_mask is not None:
                     _, overlap_t = calculate_iou_and_overlap(main_bike_mask, tactile_mask)
                     geo["overlap_with_tactile_paving"] = overlap_t
+                green_belt_mask = combine_masks(objects, "Green belt")
+                if green_belt_mask is not None:
+                    _, overlap_g = calculate_iou_and_overlap(main_bike_mask, green_belt_mask)
+                    geo["overlap_with_green_belt"] = overlap_g
                 if geo["overlap_with_parking_lane"] > 0.8:
                     geo["status_inference"] = "Likely Compliant (High Overlap)"
                 elif geo["overlap_with_parking_lane"] < 0.1:
@@ -649,6 +664,12 @@ def check_parking():
                     if blind_result["override"]:
                         vlm_result.medium = "[不合规-盲道]"
 
+                    # 绿化带 override：车压绿化带面积比 ≥0.01 判违规
+                    if geo.get("overlap_with_green_belt", 0.0) >= 0.01:
+                        vlm_result.medium = "[不合规-绿化]"
+                        blind_result["override"] = True
+                        blind_result["reason"] = f"车辆压绿化带 overlap_ratio={geo['overlap_with_green_belt']:.3f}"
+
                     if vlm_result.is_valid:
                         score_result = _scoring_engine.score(*vlm_result.statuses)
                         is_valid_parking = score_result.is_compliant
@@ -665,6 +686,7 @@ def check_parking():
                             "final_score": score_result.final_score,
                             "dimension_scores": score_result.dimension_scores,
                             "reason": str(vlm_result.reason)[:500],
+                            "adjustment_suggestion": vlm_result.adjustment_suggestion,
                         }
                         if is_valid_parking:
                             message = f"合规停车（综合评分 {confidence:.2f}）"
@@ -716,6 +738,10 @@ def check_parking():
             "disambiguation": cv_angle_result.get("disambiguation", ""),
             "curb_fallback": cv_angle_result.get("curb_fallback", False),
             "n_line_types": cv_angle_result.get("n_line_types", 0),
+            "overlap_parking": round(float(geo.get("overlap_with_parking_lane", 0.0)), 4),
+            "overlap_tactile": round(float(geo.get("overlap_with_tactile_paving", 0.0)), 4),
+            "overlap_green_belt": round(float(geo.get("overlap_with_green_belt", 0.0)), 4),
+            "green_belt_override": bool(geo.get("overlap_with_green_belt", 0.0) >= 0.01),
             "blind_lane": {
                 "iou": blind_result.get("iou", 0.0),
                 "depth_diff": blind_result.get("depth_diff"),
@@ -743,6 +769,289 @@ def check_parking():
         print(f"Check Parking Error: {e}")
         traceback.print_exc()
         return jsonify({"code": 500, "message": str(e)}), 500
+
+
+def _generate_mask_pca_image(img_bytes: bytes, save_path: str):
+    """生成 YOLO 掩模图带 PCA 主轴叠加
+
+    复用全局 ai_engine (new_best.pt) 跑分割 (imgsz=1024, conf=0.35)，
+    各类 mask 半透明叠加 (Electric bike绿/Curb紫/parking lane黄/Tactile paving橙/Green belt天蓝)，
+    对主车 mask 与停车线/路缘 mask 算 2D PCA 主轴并画线，标注夹角度数。
+
+    Args:
+        img_bytes: 原图字节流
+        save_path: 输出 jpg 路径
+
+    Returns:
+        (mask_pca_image 文件名 or None, yolo_detections 列表)
+    """
+    if ai_engine is None:
+        print("[GT掩模] ai_engine 未加载，跳过掩模图生成")
+        return None, []
+
+    try:
+        seg = ai_engine.predict(img_bytes, conf=0.35, imgsz=1024, retina_masks=True, visual=False)
+        objects = seg["objects"]
+        img_array = seg["image_raw"]
+        H, W = seg["image_size"]
+
+        colors = {
+            "Electric bike": (0, 255, 0),
+            "Curb": (180, 80, 200),
+            "parking lane": (255, 255, 0),
+            "Tactile paving": (255, 165, 0),
+            "Green belt": (0, 200, 255),
+        }
+
+        # 主车选取：距画面中心最近的 Electric bike
+        main_bike_mask = None
+        img_cx, img_cy = W / 2.0, H / 2.0
+        best_dist = float("inf")
+        for obj in objects:
+            if obj["label"] != "Electric bike":
+                continue
+            bx1, by1, bx2, by2 = obj["bbox"]
+            d = ((bx1 + bx2) / 2 - img_cx) ** 2 + ((by1 + by2) / 2 - img_cy) ** 2
+            if d < best_dist:
+                best_dist = d
+                main_bike_mask = obj.get("mask")
+
+        # 标线 mask：优先停车线，缺失或过小则降级到路缘
+        parking_mask = combine_masks(objects, "parking lane")
+        curb_mask = combine_masks(objects, "Curb")
+        line_mask = parking_mask
+        if (line_mask is None or line_mask.sum() < 50) and curb_mask is not None:
+            line_mask = curb_mask
+
+        # 半透明叠加各类 mask
+        arr = img_array.astype(np.float32)
+        for obj in objects:
+            label = obj["label"]
+            color = colors.get(label, (128, 128, 128))
+            mask = obj.get("mask")
+            if isinstance(mask, np.ndarray) and mask.sum() > 0:
+                m = mask.astype(bool)
+                if m.shape == arr.shape[:2]:
+                    for c in range(3):
+                        arr[:, :, c][m] = arr[:, :, c][m] * 0.5 + color[c] * 0.5
+        overlay = Image.fromarray(arr.astype(np.uint8))
+        draw = ImageDraw.Draw(overlay)
+
+        def draw_axis(center, direction, color, length=160, width=4):
+            """画 PCA 主轴双向线段"""
+            c = np.array(center, dtype=float)
+            d = np.array(direction, dtype=float)
+            n = np.linalg.norm(d)
+            if n < 1e-8:
+                return
+            d = d / n
+            end = c + d * length
+            start = c - d * length
+            draw.line([float(start[0]), float(start[1]), float(end[0]), float(end[1])], fill=color, width=width)
+
+        # PCA 主轴 + 夹角
+        bike_c, bike_d = (None, None)
+        if main_bike_mask is not None:
+            bike_c, bike_d = pca_2d_image(main_bike_mask)
+            if bike_c is not None:
+                draw_axis(bike_c, bike_d, (0, 255, 0), 180, 4)  # 绿=车
+        line_c, line_d = (None, None)
+        if line_mask is not None and line_mask.sum() >= 50:
+            line_c, line_d = pca_2d_image(line_mask)
+            if line_c is not None:
+                draw_axis(line_c, line_d, (255, 255, 0), 150, 3)  # 黄=标线/路缘
+        angle_text = None
+        if bike_d is not None and line_d is not None:
+            angle_text = f"angle={angle_between(bike_d, line_d):.1f} deg"
+
+        # 左上角标注
+        y = 8
+        if angle_text:
+            draw.text((8, y), angle_text, fill=(255, 255, 255))
+            y += 16
+        draw.text((8, y), f"objects={len(objects)}", fill=(255, 255, 255))
+
+        overlay.save(save_path, quality=85)
+
+        detections = [
+            {"label": obj["label"], "confidence": obj["confidence"], "bbox": obj["bbox"]}
+            for obj in objects
+        ]
+        return os.path.basename(save_path), detections
+    except Exception as e:
+        print(f"[GT掩模] 生成失败: {e}")
+        traceback.print_exc()
+        return None, []
+
+
+# =========================================================
+# 功能 4: GT 收集 (App 测试模式上传样本+真值)
+# =========================================================
+@app.route("/api/test/submit_gt", methods=["POST"])
+def submit_gt():
+    """
+    GT 收集接口 (App 测试模式)
+
+    接收 App 测试模式上传的图片样本 + 模型判断结果 + 用户手动真值,
+    保存到 data/gt_collected/{folder_name}/ 下, 用于后续模型评测.
+
+    存储:
+      - 图: data/gt_collected/{folder_name}/{timestamp}_{plate}.jpg
+      - GT: data/gt_collected/{folder_name}/{timestamp}_{plate}.json
+    """
+    try:
+        if "file" not in request.files:
+            return jsonify({"ok": False, "message": "No file"}), 400
+
+        file = request.files["file"]
+
+        # --- 字段解析 ---
+        plate_number_raw = request.form.get("plate_number", "").strip()
+        model_is_valid_raw = request.form.get("model_is_valid", "").strip().lower()
+        model_score_raw = request.form.get("model_score", "").strip()
+        model_message = request.form.get("model_message", "").strip()
+        user_gt = request.form.get("user_gt", "").strip().lower()
+        folder_name_raw = request.form.get("folder_name", "").strip()
+        timestamp_raw = request.form.get("timestamp", "").strip()
+
+        # --- 字段解析（增强：四维状态 + CV 几何 + 时延，由 app 端 check_parking 结果回传） ---
+        def _form_str(key: str) -> str:
+            return request.form.get(key, "").strip()
+
+        def _form_float(key: str):
+            v = request.form.get(key, "").strip()
+            if not v:
+                return None
+            try:
+                return float(v)
+            except ValueError:
+                return None
+
+        def _form_bool(key: str) -> bool:
+            return request.form.get(key, "").strip().lower() == "true"
+
+        def _form_int(key: str):
+            v = request.form.get(key, "").strip()
+            if not v:
+                return None
+            try:
+                return int(v)
+            except ValueError:
+                return None
+
+        vlm_position = _form_str("vlm_position")
+        vlm_medium = _form_str("vlm_medium")
+        vlm_angle = _form_str("vlm_angle")
+        vlm_state = _form_str("vlm_state")
+        vlm_position_conf = _form_float("vlm_position_conf")
+        vlm_medium_conf = _form_float("vlm_medium_conf")
+        vlm_angle_conf = _form_float("vlm_angle_conf")
+        vlm_state_conf = _form_float("vlm_state_conf")
+        dim_score_position = _form_float("dim_score_position")
+        dim_score_medium = _form_float("dim_score_medium")
+        dim_score_angle = _form_float("dim_score_angle")
+        dim_score_state = _form_float("dim_score_state")
+        cv_angle_judgment = _form_str("cv_angle_judgment")
+        cv_angle_to_bike = _form_float("cv_angle_to_bike")
+        cv_disambiguation = _form_str("cv_disambiguation")
+        cv_curb_fallback = _form_bool("cv_curb_fallback")
+        overlap_parking = _form_float("overlap_parking")
+        overlap_tactile = _form_float("overlap_tactile")
+        overlap_green_belt = _form_float("overlap_green_belt")
+        blind_override = _form_bool("blind_override")
+        green_belt_override = _form_bool("green_belt_override")
+        latency_ms = _form_int("latency_ms")
+
+        # --- folder_name 安全校验: 只允许字母数字下划线横杠, 防路径穿越 ---
+        if not folder_name_raw:
+            return jsonify({"ok": False, "message": "folder_name is required"}), 400
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", folder_name_raw):
+            return jsonify({"ok": False, "message": "folder_name contains invalid characters"}), 400
+        folder_name = folder_name_raw
+
+        # --- timestamp: 没传或非法则服务端生成; 只允许字母数字下划线横杠 ---
+        if not timestamp_raw or not re.fullmatch(r"[A-Za-z0-9_-]+", timestamp_raw):
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        else:
+            timestamp = timestamp_raw
+
+        # --- plate_number: 空则 unknown, 清洗特殊字符 (保留字母数字与中文) ---
+        if not plate_number_raw:
+            plate_number_raw = "unknown"
+        plate_clean = re.sub(r"[^A-Za-z0-9\u4e00-\u9fa5]", "", plate_number_raw)
+        if not plate_clean:
+            plate_clean = "unknown"
+
+        # --- 创建目录 ---
+        gt_root = os.path.join(BASE_DIR, "data", "gt_collected")
+        save_dir = os.path.join(gt_root, folder_name)
+        os.makedirs(save_dir, exist_ok=True)
+
+        # --- 文件名与路径 ---
+        base_name = f"{timestamp}_{plate_clean}"
+        image_path = os.path.join(save_dir, f"{base_name}.jpg")
+        mask_pca_path = os.path.join(save_dir, f"{base_name}_mask_pca.jpg")
+        gt_path = os.path.join(save_dir, f"{base_name}.json")
+
+        # --- 保存原图（先读字节，便于复用跑分割） ---
+        img_bytes = file.read()
+        with open(image_path, "wb") as f:
+            f.write(img_bytes)
+
+        # --- 生成 YOLO 掩模图带 PCA 主轴叠加 ---
+        mask_pca_image, yolo_detections = _generate_mask_pca_image(img_bytes, mask_pca_path)
+
+        # --- 解析模型字段类型 ---
+        model_is_valid = model_is_valid_raw == "true"
+        try:
+            model_score = float(model_score_raw) if model_score_raw else None
+        except ValueError:
+            model_score = None
+
+        # --- 写 GT JSON ---
+        gt_data = {
+            "plate_number": plate_clean,
+            "model_is_valid": model_is_valid,
+            "model_score": model_score,
+            "model_message": model_message,
+            "user_gt": user_gt,
+            "timestamp": timestamp,
+            "folder_name": folder_name,
+            "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "vlm_position": vlm_position,
+            "vlm_medium": vlm_medium,
+            "vlm_angle": vlm_angle,
+            "vlm_state": vlm_state,
+            "vlm_position_conf": vlm_position_conf,
+            "vlm_medium_conf": vlm_medium_conf,
+            "vlm_angle_conf": vlm_angle_conf,
+            "vlm_state_conf": vlm_state_conf,
+            "dim_score_position": dim_score_position,
+            "dim_score_medium": dim_score_medium,
+            "dim_score_angle": dim_score_angle,
+            "dim_score_state": dim_score_state,
+            "cv_angle_judgment": cv_angle_judgment,
+            "cv_angle_to_bike": cv_angle_to_bike,
+            "cv_disambiguation": cv_disambiguation,
+            "cv_curb_fallback": cv_curb_fallback,
+            "overlap_parking": overlap_parking,
+            "overlap_tactile": overlap_tactile,
+            "overlap_green_belt": overlap_green_belt,
+            "blind_override": blind_override,
+            "green_belt_override": green_belt_override,
+            "latency_ms": latency_ms,
+            "mask_pca_image": mask_pca_image,
+            "yolo_detections": yolo_detections,
+        }
+        with open(gt_path, "w", encoding="utf-8") as f:
+            json.dump(gt_data, f, ensure_ascii=False, indent=2)
+
+        return jsonify({"ok": True, "image_path": image_path, "gt_path": gt_path, "mask_pca_image": mask_pca_image}), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"ok": False, "message": str(e)}), 500
+
 
 
 # =========================================================

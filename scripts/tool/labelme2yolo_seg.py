@@ -10,6 +10,7 @@ CLASS_MAP = {
     "Curb": 1,
     "parking lane": 2,
     "Tactile paving": 3,
+    "Green belt": 4,
 }
 
 TRAIN_RATIO = 0.8
@@ -60,7 +61,7 @@ def main():
     """执行 LabelMe -> YOLO 格式转换和数据集划分。"""
     project_root = Path(__file__).resolve().parents[2]
     src_dir = project_root / "data" / "yolo" / "labelme_raw"
-    out_dir = project_root / "data" / "yolo" / "dataset_base"
+    out_dir = project_root / "data" / "yolo" / "dataset_v5"
 
     if out_dir.exists():
         print(f"target dir exists, clearing: {out_dir}")
@@ -70,7 +71,7 @@ def main():
         (out_dir / "images" / split).mkdir(parents=True)
         (out_dir / "labels" / split).mkdir(parents=True)
 
-    json_files = sorted(src_dir.glob("*.json"))
+    json_files = sorted(src_dir.rglob("*.json"))
     pairs = []
     skipped = 0
     for jf in json_files:
@@ -126,6 +127,7 @@ names:
   1: Curb
   2: parking lane
   3: Tactile paving
+  4: Green belt
 
 # Train: {len(train_pairs)} | Val: {len(val_pairs)} | Labels: {total_labels}
 """

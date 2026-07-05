@@ -44,6 +44,7 @@ class VLMResult:
     angle_confidence: float = 0.5
     state_confidence: float = 0.5
     reason: str = ""
+    adjustment_suggestion: str = ""
     raw_json: Optional[dict] = field(default=None, repr=False)
     parse_error: str = ""
 
@@ -92,6 +93,7 @@ def parse_vlm_response(response_text: str) -> VLMResult:
             angle_confidence=float(scores.get("angle_confidence", 0.5)),
             state_confidence=float(scores.get("state_confidence", 0.5)),
             reason=str(data.get("step_by_step_analysis", "")),
+            adjustment_suggestion=str(data.get("adjustment_suggestion", "")),
             raw_json=data,
         )
     except Exception as e:
